@@ -58,7 +58,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${roboto.variable} ${luckiest.variable} h-full antialiased`}>
       <head>
-        <meta name="base:app_id" content="69f2587905020c0316bbbfdf" />
         <script src="https://telegram.org/js/telegram-web-app.js?62" />
         <link rel="preconnect" href="https://auth.farcaster.xyz" />
       </head>
