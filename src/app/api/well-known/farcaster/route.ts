@@ -16,7 +16,7 @@ export async function GET() {
       buttonTitle: "Play Now",
       splashImageUrl: `${appUrl}/splash.png`,
       splashBackgroundColor: "#0A0F26",
-      webhookUrl: `${appUrl}/api/webhook/farcaster`,
+      webhookUrl: process.env.FARCASTER_WEBHOOK_URL || `${appUrl}/api/webhook/farcaster`,
       description: "Bonk with Claude on Farcaster! Tap to bonk and share your score.",
       primaryCategory: "games",
       tags: ["game", "bonk", "claude"],
