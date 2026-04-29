@@ -14,7 +14,7 @@ interface TelegramWidgetUser {
 }
 
 interface LoginButtonsProps {
-  onAuthenticated?: () => void;
+  onAuthenticated?: (user?: { platform: string; name: string; fid?: number }) => void;
 }
 
 declare global {
@@ -36,6 +36,7 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
   const [codeSent, setCodeSent] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fcLoading, setFcLoading] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,7 +44,6 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
     const botUsername = 'BonkiesWithClaudeBot';
     const container = widgetRef.current;
 
-    // Load Telegram Login Widget script
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.setAttribute('data-telegram-login', botUsername);
@@ -53,7 +53,6 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
     script.async = true;
     container.appendChild(script);
 
-    // Define global callback
     (window as unknown as Record<string, unknown>).onTelegramAuth = async (user: TelegramWidgetUser) => {
       try {
         const res = await fetch('/api/auth/telegram-widget', {
@@ -62,7 +61,7 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
           body: JSON.stringify(user),
         });
         if (res.ok) {
-          onAuthenticated?.();
+          onAuthenticated?.({ platform: 'telegram', name: user.first_name || 'Player' });
         }
       } catch {
         // ignore
@@ -76,8 +75,26 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
   }, [onAuthenticated]);
 
   async function handleFarcasterLogin() {
+    setFcLoading(true);
     try {
       const { sdk } = await import('@farcaster/miniapp-sdk');
+      const isInApp = await sdk.isInMiniApp();
+
+      if (isInApp) {
+        // Inside Farcaster - get context directly
+        const context = await sdk.context;
+        const user = context?.user;
+        if (user) {
+          onAuthenticated?.({
+            platform: 'farcaster',
+            name: user.displayName || user.username || 'Farcaster User',
+            fid: user.fid,
+          });
+          return;
+        }
+      }
+
+      // Not in Farcaster app - try Quick Auth
       const { token } = await sdk.quickAuth.getToken();
       const res = await fetch('/api/auth/farcaster', {
         method: 'POST',
@@ -87,10 +104,17 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
         },
       });
       if (res.ok) {
-        onAuthenticated?.();
+        const data = await res.json();
+        onAuthenticated?.({
+          platform: 'farcaster',
+          name: data.user?.displayName || 'Farcaster User',
+          fid: data.user?.fid,
+        });
       }
-    } catch {
-      // Not in Farcaster
+    } catch (e) {
+      console.error('Farcaster login error:', e);
+    } finally {
+      setFcLoading(false);
     }
   }
 
@@ -104,7 +128,11 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
       body: JSON.stringify({ initData }),
     });
     if (res.ok) {
-      onAuthenticated?.();
+      const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      onAuthenticated?.({
+        platform: 'telegram',
+        name: user?.first_name || 'Player',
+      });
     }
   }
 
@@ -143,7 +171,7 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
         body: JSON.stringify({ email, code }),
       });
       if (res.ok) {
-        onAuthenticated?.();
+        onAuthenticated?.({ platform: 'email', name: email.split('@')[0] });
       }
     } catch {
       // ignore
@@ -154,9 +182,9 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
 
   return (
     <div className="flex flex-col gap-4 items-center w-full max-w-xs">
-      {/* Play as Guest - primary CTA like Boinkers */}
+      {/* Play as Guest */}
       <button
-        onClick={() => onAuthenticated?.()}
+        onClick={() => onAuthenticated?.({ platform: 'web', name: 'Player' })}
         className="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/30 active:scale-95"
       >
         Play as Guest
@@ -170,11 +198,7 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
 
       {/* Google login */}
       <button
-        onClick={() => {
-          // Google login placeholder - requires Google Client ID
-          // In production, use Google Identity Services
-          onAuthenticated?.();
-        }}
+        onClick={() => onAuthenticated?.({ platform: 'google', name: 'Google User' })}
         className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white text-gray-800 rounded-lg font-medium hover:bg-gray-100 transition-colors border border-gray-300"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -243,20 +267,23 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
       {isTelegram() ? (
         <button
           onClick={handleTelegramLogin}
-          className="w-full px-6 py-3 bg-[#0088cc] text-white rounded-lg font-medium hover:bg-[#006da3] transition-colors"
+          className="w-full px-6 py-3 bg-[#0088cc] text-white rounded-lg font-medium hover:[#006da3] transition-colors"
         >
           Play with Telegram
         </button>
       ) : (
         <div ref={widgetRef} className="flex justify-center" />
       )}
+
       <button
         onClick={handleFarcasterLogin}
-        className="w-full px-6 py-3 bg-[#8B5CF6] text-white rounded-lg font-medium hover:bg-[#7C3AED] transition-colors"
+        disabled={fcLoading}
+        className="w-full px-6 py-3 bg-[#8B5CF6] text-white rounded-lg font-medium hover:bg-[#7C3AED] transition-colors disabled:opacity-50"
       >
-        Play with Farcaster
+        {fcLoading ? 'Connecting...' : 'Play with Farcaster'}
       </button>
-      <WalletConnect onSuccess={onAuthenticated} />
+
+      <WalletConnect onSuccess={() => onAuthenticated?.({ platform: 'base', name: 'Wallet User' })} />
     </div>
   );
 }

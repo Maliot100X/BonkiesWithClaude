@@ -84,7 +84,13 @@ const WHEEL_SIZE = 280;
 
 const WEIGHTS = [25, 18, 12, 15, 8, 6, 0.5, 5, 1, 3, 10, 0.3];
 
-export function GameScreen() {
+interface GameUser {
+  platform: string;
+  name: string;
+  fid?: number;
+}
+
+export function GameScreen({ user }: { user?: GameUser | null } = {}) {
   const [state, setState] = useState<GameState>(getDefaultState);
   const [initialized, setInitialized] = useState(false);
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -216,155 +222,146 @@ export function GameScreen() {
   }, [particles]);
 
   const spin = useCallback(() => {
-    if (spinningRef.current) return;
+    if (spinningRef.current || state.energy <= 0) {
+      if (state.energy <= 0) playEmpty();
+      return;
+    }
+
+    // Lock immediately
     spinningRef.current = true;
+    setSpinning(true);
+    setSpinResult(null);
 
-    // Check energy first (read from DOM or use a ref if needed)
-    // Use functional update to check and deduct energy atomically
-    setState((prev) => {
-      if (prev.energy <= 0) {
-        playEmpty();
-        return prev;
-      }
+    // Pick random segment
+    const totalWeight = WEIGHTS.reduce((a, b) => a + b, 0);
+    let r = Math.random() * totalWeight;
+    let segmentIndex = 0;
+    for (let i = 0; i < WEIGHTS.length; i++) {
+      r -= WEIGHTS[i];
+      if (r <= 0) { segmentIndex = i; break; }
+    }
 
-      // Pick random segment
-      const totalWeight = WEIGHTS.reduce((a, b) => a + b, 0);
-      let r = Math.random() * totalWeight;
-      let segmentIndex = 0;
-      for (let i = 0; i < WEIGHTS.length; i++) {
-        r -= WEIGHTS[i];
-        if (r <= 0) { segmentIndex = i; break; }
-      }
+    const segment = WHEEL_SEGMENTS[segmentIndex];
+    const segmentAngle = 360 / WHEEL_SEGMENTS.length;
+    const segmentCenter = segmentIndex * segmentAngle + segmentAngle / 2;
+    const extraSpins = 5 + Math.floor(Math.random() * 3);
+    const targetAngle = extraSpins * 360 + (360 - segmentCenter);
 
-      const segment = WHEEL_SEGMENTS[segmentIndex];
-      const segmentAngle = 360 / WHEEL_SEGMENTS.length;
-      const segmentCenter = segmentIndex * segmentAngle + segmentAngle / 2;
-      const extraSpins = 5 + Math.floor(Math.random() * 3);
-      const targetAngle = extraSpins * 360 + (360 - segmentCenter);
+    // Spin wheel animation
+    setSpinAngle((prev) => prev + targetAngle);
 
-      // Set spinning state and angle synchronously
-      setSpinning(true);
-      setSpinResult(null);
-      setSpinAngle((prevAngle) => prevAngle + targetAngle);
+    // Deduct energy
+    setState((prev) => ({
+      ...prev,
+      energy: prev.energy - 1,
+      totalSpins: prev.totalSpins + 1,
+    }));
 
-      // Deduct energy
-      const newState: GameState = {
-        ...prev,
-        energy: prev.energy - 1,
-        totalSpins: prev.totalSpins + 1,
-      };
+    playSpin();
 
-      playSpin();
+    // Haptics
+    if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+    getFcSdk().then(s => s?.haptics.impactOccurred('medium')).catch(() => {});
 
-      // Haptics
-      if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-      }
-      getFcSdk().then(s => s?.haptics.impactOccurred('medium')).catch(() => {});
+    // Process result after animation completes
+    setTimeout(() => {
+      setState((prev) => {
+        const newCombo = prev.combo + 1;
+        const comboMult = getMultiplier(newCombo);
+        const boostMult = prev.activeBoost.spinsLeft > 0 ? prev.activeBoost.multiplier : 1;
 
-      // Process result after animation
-      setTimeout(() => {
-        setState((innerPrev) => {
-          const newCombo = innerPrev.combo + 1;
-          const comboMult = getMultiplier(newCombo);
+        let scoreGain = 0;
+        let xpGain = 0;
+        let energyGain = 0;
+        let resultText = '';
+        let resultColor = '#FFD700';
 
-          let scoreGain = 0;
-          let xpGain = 0;
-          let energyGain = 0;
-          let resultText = '';
-          let resultColor = '#FFD700';
+        if (segment.type === 'coins') {
+          scoreGain = Math.floor(segment.value * comboMult * boostMult);
+          xpGain = Math.floor(segment.value / 10) + 1;
+          resultText = `+${scoreGain} coins`;
+          resultColor = '#00E676';
+        } else if (segment.type === 'xp') {
+          xpGain = segment.value;
+          resultText = `+${segment.value} XP`;
+          resultColor = '#9333EA';
+        } else if (segment.type === 'multiplier') {
+          scoreGain = Math.floor(100 * comboMult * segment.value * boostMult);
+          xpGain = 10;
+          resultText = `${segment.value}x BOOST! +${scoreGain}`;
+          resultColor = '#D500F9';
+        } else if (segment.type === 'jackpot') {
+          scoreGain = Math.floor(segment.value * comboMult * boostMult);
+          xpGain = 100;
+          resultText = `JACKPOT! +${scoreGain}`;
+          resultColor = '#FFD700';
+        } else if (segment.type === 'bonus') {
+          energyGain = 3;
+          xpGain = 5;
+          resultText = `BONUS! +3 spins`;
+          resultColor = '#00B0FF';
+        } else {
+          resultText = `Better luck next time!`;
+          resultColor = '#6B7280';
+        }
 
-          const boostMult = innerPrev.activeBoost.spinsLeft > 0 ? innerPrev.activeBoost.multiplier : 1;
+        let updated: GameState = {
+          ...prev,
+          score: prev.score + scoreGain,
+          totalScore: prev.totalScore + scoreGain,
+          combo: newCombo,
+          maxCombo: Math.max(prev.maxCombo, newCombo),
+          bestCombo: Math.max(prev.bestCombo, newCombo),
+          energy: Math.min(prev.maxEnergy, prev.energy + energyGain),
+          activeBoost: prev.activeBoost.spinsLeft > 0
+            ? { multiplier: prev.activeBoost.multiplier, spinsLeft: prev.activeBoost.spinsLeft - 1 }
+            : prev.activeBoost,
+        };
 
-          if (segment.type === 'coins') {
-            scoreGain = Math.floor(segment.value * comboMult * boostMult);
-            xpGain = Math.floor(segment.value / 10) + 1;
-            resultText = `+${scoreGain} coins`;
-            resultColor = '#00E676';
-          } else if (segment.type === 'xp') {
-            xpGain = segment.value;
-            resultText = `+${segment.value} XP`;
-            resultColor = '#9333EA';
-          } else if (segment.type === 'multiplier') {
-            scoreGain = Math.floor(100 * comboMult * segment.value * boostMult);
-            xpGain = 10;
-            resultText = `${segment.value}x BOOST! +${scoreGain}`;
-            resultColor = '#D500F9';
-          } else if (segment.type === 'jackpot') {
-            scoreGain = Math.floor(segment.value * comboMult * boostMult);
-            xpGain = 100;
-            resultText = `JACKPOT! +${scoreGain}`;
-            resultColor = '#FFD700';
-          } else if (segment.type === 'bonus') {
-            energyGain = 3;
-            xpGain = 5;
-            resultText = `BONUS! +3 spins`;
-            resultColor = '#00B0FF';
-          } else if (segment.type === 'nothing') {
-            scoreGain = 0;
-            xpGain = 0;
-            resultText = `Better luck next time!`;
-            resultColor = '#6B7280';
+        updated = updateChallengeProgress(updated, 1, scoreGain, newCombo, 0);
+
+        if (xpGain > 0) {
+          const { state: xpState, leveledUp } = addXp(updated, xpGain);
+          updated = xpState;
+          if (leveledUp) {
+            updated = updateChallengeProgress(updated, 0, 0, 0, 1);
+            playLevelUp();
+            setTimeout(() => setShowLevelUp(true), 100);
+            setTimeout(() => setShowLevelUp(false), 2000);
           }
+        }
 
-          let updatedState: GameState = {
-            ...innerPrev,
-            score: innerPrev.score + scoreGain,
-            totalScore: innerPrev.totalScore + scoreGain,
-            combo: newCombo,
-            maxCombo: Math.max(innerPrev.maxCombo, newCombo),
-            bestCombo: Math.max(innerPrev.bestCombo, newCombo),
-            energy: Math.min(innerPrev.maxEnergy, innerPrev.energy + energyGain),
-            activeBoost: innerPrev.activeBoost.spinsLeft > 0
-              ? { multiplier: innerPrev.activeBoost.multiplier, spinsLeft: innerPrev.activeBoost.spinsLeft - 1 }
-              : innerPrev.activeBoost,
-          };
+        if (newCombo > 0 && newCombo % 5 === 0) {
+          playCombo(Math.floor(newCombo / 5));
+        }
 
-          updatedState = updateChallengeProgress(updatedState, 1, scoreGain, newCombo, 0);
+        playSpinWin();
+        setSpinResult(segment);
 
-          if (xpGain > 0) {
-            const { state: xpState, leveledUp } = addXp(updatedState, xpGain);
-            updatedState = xpState;
-            if (leveledUp) {
-              updatedState = updateChallengeProgress(updatedState, 0, 0, 0, 1);
-              playLevelUp();
-              setTimeout(() => setShowLevelUp(true), 100);
-              setTimeout(() => setShowLevelUp(false), 2000);
-            }
-          }
+        if (wheelRef.current) {
+          const rect = wheelRef.current.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          spawnParticles(cx, cy, segment.type === 'jackpot' ? 30 : 12);
+          addFloatingText(resultText, cx, cy - 60, resultColor);
+        }
 
-          if (newCombo > 0 && newCombo % 5 === 0) {
-            playCombo(Math.floor(newCombo / 5));
-          }
+        if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+        }
+        getFcSdk().then(s => s?.haptics.impactOccurred('heavy')).catch(() => {});
 
-          playSpinWin();
-          setSpinResult(segment);
+        // Unlock spinning
+        setTimeout(() => setSpinResult(null), 2500);
+        setSpinning(false);
+        spinningRef.current = false;
 
-          if (wheelRef.current) {
-            const rect = wheelRef.current.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const particleCount = segment.type === 'jackpot' ? 30 : 12;
-            spawnParticles(cx, cy, particleCount);
-            addFloatingText(resultText, cx, cy - 60, resultColor);
-          }
-
-          if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
-          }
-          getFcSdk().then(s => s?.haptics.impactOccurred('heavy')).catch(() => {});
-
-          setTimeout(() => setSpinResult(null), 2500);
-          setSpinning(false);
-          spinningRef.current = false;
-
-          return updatedState;
-        });
-      }, SPIN_DURATION + 100);
-
-      return newState;
-    });
-  }, [spinning, platform, spawnParticles, addFloatingText]);
+        return updated;
+      });
+    }, SPIN_DURATION + 100);
+  }, [state.energy, platform, spawnParticles, addFloatingText]);
 
   const handleClaimDaily = useCallback(() => {
     setState((prev) => {
@@ -435,12 +432,13 @@ export function GameScreen() {
   }, [state.score, state.totalSpins, state.level]);
 
   const playerName = useMemo(() => {
+    if (user?.name) return user.name;
     if (platform === 'telegram') {
-      const user = window.Telegram?.WebApp?.initDataUnsafe?.user;
-      if (user) return user.first_name || 'Player';
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      if (tgUser) return tgUser.first_name || 'Player';
     }
     return 'Player';
-  }, [platform]);
+  }, [platform, user]);
 
   useEffect(() => {
     if (!initialized || state.totalSpins === 0) return;
