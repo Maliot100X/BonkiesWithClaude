@@ -4,7 +4,7 @@
     "payload": "eyJkb21haW4iOiJib25raWVzLXdpdGgtY2xhdWRlLnZlcmNlbC5hcHAifQ",
     "signature": "wRUwJ/70JlGEzi2A41U0N47+LQXuUZiYyQaM9aOmljooRwCy2Zb/rMZyTDdncitDOYo7Wx3I8yknlpDkdfZNZxs="
   },
-  "miniapp": {
+  "frame": {
     "version": "1",
     "name": "BonkiesWithClaude",
     "iconUrl": "https://bonkies-with-claude.vercel.app/icon.png",

@@ -7,7 +7,7 @@ export async function GET() {
       payload: process.env.FARCASTER_ACCOUNT_PAYLOAD || "PLACEHOLDER_GENERATE_AT_FARCASTER_DEV",
       signature: process.env.FARCASTER_ACCOUNT_SIGNATURE || "PLACEHOLDER_GENERATE_AT_FARCASTER_DEV",
     },
-    miniapp: {
+    frame: {
       version: "1",
       name: "BonkiesWithClaude",
       iconUrl: `${appUrl}/icon.png`,

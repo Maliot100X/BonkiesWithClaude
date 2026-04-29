@@ -34,14 +34,14 @@ export const metadata: Metadata = {
   other: {
     "base:app_id": "69f2587905020c0316bbbfdf",
     "fc:miniapp": JSON.stringify({
-      version: "next",
+      version: "1",
       imageUrl: `${appUrl}/og.png`,
       button: {
         title: "Play Now",
         action: {
-          type: "launch_miniapp",
+          type: "launch_frame",
           name: "BonkiesWithClaude",
-          url: `${appUrl}/game`,
+          url: `${appUrl}`,
           splashImageUrl: `${appUrl}/splash.png`,
           splashBackgroundColor: "#0A0F26",
         },

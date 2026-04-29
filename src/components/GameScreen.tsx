@@ -104,6 +104,7 @@ export function GameScreen() {
   const floatId = useRef(0);
   const comboTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelRef = useRef<HTMLDivElement>(null);
+  const spinningRef = useRef(false);
 
   useEffect(() => {
     setPlatform(detectPlatformSync());
@@ -215,7 +216,8 @@ export function GameScreen() {
   }, [particles]);
 
   const spin = useCallback(() => {
-    if (spinning) return;
+    if (spinningRef.current) return;
+    spinningRef.current = true;
 
     // Check energy first (read from DOM or use a ref if needed)
     // Use functional update to check and deduct energy atomically
@@ -354,6 +356,7 @@ export function GameScreen() {
 
           setTimeout(() => setSpinResult(null), 2500);
           setSpinning(false);
+          spinningRef.current = false;
 
           return updatedState;
         });
