@@ -1,45 +1,40 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 export function FarcasterInit() {
-  const readyCalled = useRef(false);
-
   useEffect(() => {
-    if (readyCalled.current) return;
+    let done = false;
 
-    const init = async () => {
+    const callReady = async () => {
+      if (done) return;
       try {
-        // Dynamic import so it doesn't crash outside Farcaster
-        const { sdk } = await import('@farcaster/miniapp-sdk');
-        const isInApp = await sdk.isInMiniApp();
-        if (isInApp && !readyCalled.current) {
-          readyCalled.current = true;
-          await sdk.actions.ready();
-        }
-      } catch {
-        // Not in Farcaster - this is fine
-      }
-    };
-
-    // Call immediately
-    init();
-
-    // Also try after a delay in case SDK loads late
-    const timer = setTimeout(async () => {
-      if (readyCalled.current) return;
-      try {
-        const { sdk } = await import('@farcaster/miniapp-sdk');
-        const isInApp = await sdk.isInMiniApp();
-        if (isInApp && !readyCalled.current) {
-          readyCalled.current = true;
-          await sdk.actions.ready();
+        const mod = await import('@farcaster/miniapp-sdk');
+        const isIn = await mod.sdk.isInMiniApp();
+        if (isIn && !done) {
+          done = true;
+          await mod.sdk.actions.ready();
         }
       } catch {
         // ignore
       }
-    }, 1000);
+    };
 
-    return () => clearTimeout(timer);
+    // Try immediately
+    callReady();
+
+    // Try again after 300ms
+    const t1 = setTimeout(callReady, 300);
+    // Try again after 1s
+    const t2 = setTimeout(callReady, 1000);
+    // Try again after 2s
+    const t3 = setTimeout(callReady, 2000);
+
+    return () => {
+      done = true;
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, []);
 
   return null;

@@ -217,12 +217,15 @@ export function GameScreen() {
   const spin = useCallback(() => {
     if (spinning) return;
 
+    // Check energy first (read from DOM or use a ref if needed)
+    // Use functional update to check and deduct energy atomically
     setState((prev) => {
       if (prev.energy <= 0) {
         playEmpty();
         return prev;
       }
 
+      // Pick random segment
       const totalWeight = WEIGHTS.reduce((a, b) => a + b, 0);
       let r = Math.random() * totalWeight;
       let segmentIndex = 0;
@@ -237,13 +240,13 @@ export function GameScreen() {
       const extraSpins = 5 + Math.floor(Math.random() * 3);
       const targetAngle = extraSpins * 360 + (360 - segmentCenter);
 
-      setTimeout(() => {
-        setSpinning(true);
-        setSpinResult(null);
-        setSpinAngle((prev) => prev + targetAngle);
-      }, 0);
+      // Set spinning state and angle synchronously
+      setSpinning(true);
+      setSpinResult(null);
+      setSpinAngle((prevAngle) => prevAngle + targetAngle);
 
-      const newState = {
+      // Deduct energy
+      const newState: GameState = {
         ...prev,
         energy: prev.energy - 1,
         totalSpins: prev.totalSpins + 1,
@@ -251,11 +254,13 @@ export function GameScreen() {
 
       playSpin();
 
+      // Haptics
       if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
       }
       getFcSdk().then(s => s?.haptics.impactOccurred('medium')).catch(() => {});
 
+      // Process result after animation
       setTimeout(() => {
         setState((innerPrev) => {
           const newCombo = innerPrev.combo + 1;
@@ -408,7 +413,7 @@ export function GameScreen() {
   }, []);
 
   const shareScore = useCallback(async () => {
-    const text = `I spun ${state.totalSpins} times and reached level ${state.level} (${getLevelTitle(state.level)}) on BonkWithClaude! Score: ${state.score}. Can you beat me?`;
+    const text = `I spun ${state.totalSpins} times and reached level ${state.level} (${getLevelTitle(state.level)}) on BonkiesWithClaude! Score: ${state.score}. Can you beat me?`;
     try {
       const s = await getFcSdk();
       if (s) {
@@ -417,11 +422,11 @@ export function GameScreen() {
           embeds: [typeof window !== 'undefined' ? window.location.origin : ''],
         });
       } else if (typeof navigator !== 'undefined' && navigator.share) {
-        navigator.share({ title: 'BonkWithClaude', text, url: window.location.origin });
+        navigator.share({ title: 'BonkiesWithClaude', text, url: window.location.origin });
       }
     } catch {
       if (typeof navigator !== 'undefined' && navigator.share) {
-        navigator.share({ title: 'BonkWithClaude', text, url: window.location.origin });
+        navigator.share({ title: 'BonkiesWithClaude', text, url: window.location.origin });
       }
     }
   }, [state.score, state.totalSpins, state.level]);
@@ -945,9 +950,9 @@ export function GameScreen() {
 
               <button
                 onClick={() => {
-                  const text = `Play BonkWithClaude and use my referral code ${state.referral.code} for 500 bonus coins!`;
+                  const text = `Play BonkiesWithClaude and use my referral code ${state.referral.code} for 500 bonus coins!`;
                   if (navigator.share) {
-                    navigator.share({ title: 'BonkWithClaude', text, url: window.location.origin });
+                    navigator.share({ title: 'BonkiesWithClaude', text, url: window.location.origin });
                   } else {
                     navigator.clipboard?.writeText(text + ' ' + window.location.origin);
                   }

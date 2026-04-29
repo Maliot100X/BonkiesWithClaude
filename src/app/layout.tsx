@@ -60,6 +60,26 @@ export default function RootLayout({
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js?62" />
         <link rel="preconnect" href="https://auth.farcaster.xyz" />
+        <script src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk/dist/index.min.js" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            var done=false;
+            function tryReady(){
+              if(done)return;
+              try{
+                if(window.miniapp&&window.miniapp.sdk){
+                  window.miniapp.sdk.isInMiniApp().then(function(ok){
+                    if(ok&&!done){done=true;window.miniapp.sdk.actions.ready();}
+                  });
+                }
+              }catch(e){}
+            }
+            tryReady();
+            setTimeout(tryReady,300);
+            setTimeout(tryReady,1000);
+            setTimeout(tryReady,2000);
+          })();
+        `}} />
       </head>
       <body className="min-h-full flex flex-col font-[var(--font-roboto)]" style={{ fontFamily: "var(--font-roboto), sans-serif" }}>
         <Providers>

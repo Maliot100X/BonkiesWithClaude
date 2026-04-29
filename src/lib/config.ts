@@ -8,7 +8,7 @@ export const config = createConfig({
   chains: [base, baseSepolia],
   connectors: [
     injected(),
-    baseAccount({ appName: 'BonkWithClaude' }),
+    baseAccount({ appName: 'BonkiesWithClaude' }),
   ],
   storage: createStorage({ storage: cookieStorage }),
   ssr: true,
