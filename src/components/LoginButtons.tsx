@@ -1,7 +1,17 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { WalletConnect } from './WalletConnect';
 import { isTelegram } from '@/lib/platform';
+
+interface TelegramWidgetUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
 
 interface LoginButtonsProps {
   onAuthenticated?: () => void;
@@ -26,6 +36,44 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
   const [codeSent, setCodeSent] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!widgetRef.current || isTelegram()) return;
+    const botUsername = 'BonkiesWithClaudeBot';
+    const container = widgetRef.current;
+
+    // Load Telegram Login Widget script
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', botUsername);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-request-access', 'write');
+    script.async = true;
+    container.appendChild(script);
+
+    // Define global callback
+    (window as unknown as Record<string, unknown>).onTelegramAuth = async (user: TelegramWidgetUser) => {
+      try {
+        const res = await fetch('/api/auth/telegram-widget', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(user),
+        });
+        if (res.ok) {
+          onAuthenticated?.();
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    return () => {
+      container.innerHTML = '';
+      delete (window as unknown as Record<string, unknown>).onTelegramAuth;
+    };
+  }, [onAuthenticated]);
 
   async function handleFarcasterLogin() {
     try {
@@ -192,13 +240,15 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
         <div className="flex-1 h-px bg-white/10" />
       </div>
 
-      {isTelegram() && (
+      {isTelegram() ? (
         <button
           onClick={handleTelegramLogin}
           className="w-full px-6 py-3 bg-[#0088cc] text-white rounded-lg font-medium hover:bg-[#006da3] transition-colors"
         >
           Play with Telegram
         </button>
+      ) : (
+        <div ref={widgetRef} className="flex justify-center" />
       )}
       <button
         onClick={handleFarcasterLogin}

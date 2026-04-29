@@ -1,0 +1,516 @@
+# Base Apps (formerly Mini Apps) — Complete Documentation
+
+> ⚠️ **IMPORTANT:** The URL `https://docs.base.org/mini-apps/guides/mini-apps-overview` returns **404**. Base retired the Farcaster Mini Apps spec on **April 9, 2026**. All content has migrated to `https://docs.base.org/apps/`. The product is now called **"Base Apps" (Standard Web Apps)**.
+
+Full documentation saved to `/workspace/base_apps_complete_docs.md` (1,151 lines). Here is the complete content:
+
+---
+
+## 1. What Changed — Mini Apps → Standard Web Apps
+
+| Before | After |
+|--------|-------|
+| Farcaster manifest (`/.well-known/farcaster.json`) | App metadata on Base.dev |
+| Neynar webhooks | Base-owned backends (Base Account / address preferences) |
+| FID-based notifications via Neynar | Wallet-address notifications via Base.dev Notifications API |
+| Farcaster SDK for auth and actions | wagmi + viem + SIWE |
+| Discovery via Farcaster | Base.dev app metadata + builder codes |
+
+**April 9, 2026** — the Base App treats all apps as standard web apps regardless of Farcaster manifests.
+
+AI-assisted migration:
+```bash
+npx skills add base/skills
+# Ask your agent: "migrate my Farcaster app to a standard web app"
+```
+
+---
+
+## 2. Migration Guide
+
+### Path A — Converting an Existing Farcaster App
+
+#### Step 1: Add the Standard Web Stack
+
+```bash
+npm install wagmi viem @tanstack/react-query @base-org/account
+```
+
+```tsx
+// config.ts
+import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { baseAccount, injected } from 'wagmi/connectors';
+
+export const config = createConfig({
+  chains: [base],
+  connectors: [
+    injected(),
+    baseAccount({ appName: 'My App' }),
+  ],
+  storage: createStorage({ storage: cookieStorage }),
+  ssr: true,
+  transports: {
+    [base.id]: http(),
+  },
+});
+
+declare module 'wagmi' {
+  interface Register { config: typeof config; }
+}
+```
+
+```tsx
+// App.tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { WagmiProvider } from 'wagmi';
+import { config } from './config';
+
+const queryClient = new QueryClient();
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
+
+#### Step 2: Replace Auth and Identity
+
+```tsx
+// SignIn.tsx
+'use client';
+import { useState } from 'react';
+import { createSiweMessage, generateSiweNonce } from 'viem/siwe';
+import { useAccount, usePublicClient, useSignMessage } from 'wagmi';
+
+export function SignIn() {
+  const { address, chainId, isConnected } = useAccount();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const { signMessageAsync } = useSignMessage();
+  const publicClient = usePublicClient();
+
+  async function handleSignIn() {
+    if (!isConnected || !address || !chainId || !publicClient) {
+      throw new Error('Connect your wallet before signing in');
+    }
+    setIsSigningIn(true);
+    const nonce = generateSiweNonce();
+    try {
+      const message = createSiweMessage({
+        address, chainId,
+        domain: window.location.host,
+        nonce,
+        uri: window.location.origin,
+        version: '1',
+      });
+      const signature = await signMessageAsync({ message });
+      const valid = await publicClient.verifySiweMessage({ message, signature });
+      if (!valid) throw new Error('SIWE verification failed');
+    } finally {
+      setIsSigningIn(false);
+    }
+  }
+
+  return (
+    <button type="button" onClick={handleSignIn} disabled={!isConnected || isSigningIn}>
+      {isSigningIn ? 'Signing in...' : 'Sign in with Ethereum'}
+    </button>
+  );
+}
+```
+
+#### Steps 3–5:
+- Review deprecated SDK methods (see Section 12 below)
+- Migrate notifications to Base.dev API
+- Register on [Base.dev](https://www.base.dev) with: name, icon, tagline, description, screenshots, category, primary URL, builder code
+
+### Path B — Already a Standard Web App
+1. Confirm it loads in mobile browser, uses wagmi/viem, and SIWE
+2. Register on Base.dev
+3. Optionally integrate notifications API
+
+---
+
+## 3. Authentication (SIWE)
+
+### Installation
+
+```bash
+npm install @base-org/account @base-org/account-ui
+```
+
+### Browser (SDK)
+
+```ts
+import { createBaseAccountSDK } from "@base-org/account";
+
+const provider = createBaseAccountSDK({ appName: "My App" }).getProvider();
+
+const nonce = window.crypto.randomUUID().replace(/-/g, "");
+
+// Switch to Base
+await provider.request({
+  method: "wallet_switchEthereumChain",
+  params: [{ chainId: "0x2105" }], // Base Mainnet = 8453
+});
+
+// Connect + authenticate
+const { accounts } = await provider.request({
+  method: "wallet_connect",
+  params: [{
+    version: "1",
+    capabilities: {
+      signInWithEthereum: { nonce, chainId: "0x2105" },
+    },
+  }],
+});
+
+const { address } = accounts[0];
+const { message, signature } = accounts[0].capabilities.signInWithEthereum;
+
+await fetch("/auth/verify", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ address, message, signature }),
+});
+```
+
+### Backend Verification (Viem)
+
+```ts
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+export async function verifySig(req, res) {
+  const { address, message, signature } = req.body;
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: 'Invalid signature' });
+  res.json({ ok: true });
+}
+```
+
+### Full Express Server
+
+```ts
+import crypto from "crypto";
+import express from "express";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+
+const app = express();
+app.use(express.json());
+const nonces = new Set<string>();
+
+app.get("/auth/nonce", (_, res) => {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  nonces.add(nonce);
+  res.send(nonce);
+});
+
+const client = createPublicClient({ chain: base, transport: http() });
+
+app.post("/auth/verify", async (req, res) => {
+  const { address, message, signature } = req.body;
+  const nonce = message.match(/at (\w{32})$/)?.[1];
+  if (!nonce || !nonces.delete(nonce)) {
+    return res.status(400).json({ error: "Invalid or reused nonce" });
+  }
+  const valid = await client.verifyMessage({ address, message, signature });
+  if (!valid) return res.status(401).json({ error: "Invalid signature" });
+  res.json({ ok: true });
+});
+
+app.listen(3001, () => console.log("Auth server on :3001"));
+```
+
+### Sign In With Base Button
+
+```tsx
+import { SignInWithBaseButton } from "@base-org/account-ui/react";
+
+export function App() {
+  return <SignInWithBaseButton colorScheme="light" onClick={() => signInWithBase()} />;
+}
+```
+
+---
+
+## 4. Wallet Integration
+
+```tsx
+// config.ts — wagmi setup
+import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { baseAccount, injected } from 'wagmi/connectors';
+
+export const config = createConfig({
+  chains: [base],
+  connectors: [injected(), baseAccount({ appName: 'My App' })],
+  storage: createStorage({ storage: cookieStorage }),
+  ssr: true,
+  transports: { [base.id]: http() },
+});
+```
+
+```tsx
+// Read wallet address
+import { useAccount } from 'wagmi';
+
+function MyComponent() {
+  const { address, isConnected } = useAccount();
+  if (!isConnected) return <div>Not connected</div>;
+  return <div>Connected: {address}</div>;
+}
+```
+
+```ts
+// viem clients
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { base } from 'viem/chains';
+
+const publicClient = createPublicClient({ chain: base, transport: http() });
+const walletClient = createWalletClient({ chain: base, transport: http() });
+```
+
+---
+
+## 5. Transactions
+
+### Send ETH (wagmi)
+```tsx
+import { useSendTransaction } from "wagmi";
+import { parseEther } from "viem";
+
+const { sendTransaction } = useSendTransaction();
+sendTransaction({ to: "0x...", value: parseEther("0.01") });
+```
+
+### ERC-20 Transfer (replaces deprecated `sendToken`)
+```tsx
+import { useWriteContract } from 'wagmi';
+import { parseUnits } from 'viem';
+
+const { writeContract } = useWriteContract();
+writeContract({
+  address: '0xUSDC_ADDRESS',
+  abi: ERC20_ABI,
+  functionName: 'transfer',
+  args: ['0xRecipient', parseUnits('10', 6)],
+});
+```
+
+### Batch Transactions (ERC-4337)
+```ts
+await account.provider.request({
+  method: 'wallet_sendCalls',
+  params: [{
+    calls: [
+      { to: USDC, data: erc20.approve(SPENDER, AMOUNT) },
+      { to: MERCHANT, data: erc20.transfer(MERCHANT, AMOUNT) },
+    ]
+  }]
+});
+```
+
+### Base Pay
+```ts
+import { pay, getPaymentStatus } from '@base-org/account';
+const { id } = await pay({ amount: '5.00', to: '0xRecipient', testnet: true });
+const { status } = await getPaymentStatus({ id });
+```
+
+### Deeplinks (replaces deprecated SDK methods)
+```ts
+window.open(`https://base.app/coin/base-mainnet/${TOKEN_ADDRESS}`); // viewToken
+window.open(`https://base.app/profile/${WALLET_ADDRESS}`);           // viewProfile
+window.open(url);                                                     // openUrl / openMiniApp
+```
+
+---
+
+## 6. Chain Configuration
+
+| Network | Chain ID | Hex |
+|---------|----------|-----|
+| Base Mainnet | 8453 | 0x2105 |
+| Base Sepolia (testnet) | 84532 | 0x14A34 |
+
+```ts
+import { base, baseSepolia } from 'viem/chains';
+
+// Switch chain in wallet
+await provider.request({
+  method: "wallet_switchEthereumChain",
+  params: [{ chainId: "0x2105" }],
+});
+```
+
+**Base vs Ethereum differences:** Flashblocks, minimum base fee, bridging (Optimism stack), minor opcode differences, address aliasing for L1→L2, transaction costs include L1 data fee, Optimism chain finality model.
+
+---
+
+## 7. Builder Codes (ERC-8021 Attribution)
+
+**Register at:** [base.dev](https://base.dev) → Settings → Builder Code
+
+### wagmi Setup (Recommended)
+```bash
+npm i ox wagmi viem  # viem >= 2.45.0 required
+```
+
+```ts
+import { Attribution } from "ox/erc8021";
+const DATA_SUFFIX = Attribution.toDataSuffix({ codes: ["YOUR-BUILDER-CODE"] });
+
+export const config = createConfig({
+  chains: [base],
+  transports: { [base.id]: http() },
+  dataSuffix: DATA_SUFFIX,  // auto-appended to all transactions
+});
+```
+
+### viem Setup
+```ts
+import { Attribution } from "ox/erc8021";
+const DATA_SUFFIX = Attribution.toDataSuffix({ codes: ["YOUR-BUILDER-CODE"] });
+
+export const walletClient = createWalletClient({
+  chain: base,
+  transport: http(),
+  dataSuffix: DATA_SUFFIX,
+});
+```
+
+### Agent Registration API
+```bash
+curl -X POST https://api.base.dev/v1/agents/builder-codes \
+  -H "Content-Type: application/json" \
+  -d '{ "walletAddress": "<your-agent-wallet>" }'
+# Returns: { "builderCode": "bc_a1b2c3d4", "walletAddress": "0x..." }
+# Idempotent — safe to call on every deploy
+```
+
+### Verification
+- **base.dev dashboard** — Onchain → Total Transactions
+- **Block explorer** — Input data, last 16 bytes should be `8021` repeating
+- **Tool** — https://builder-code-checker.vercel.app/
+
+---
+
+## 8. Notifications API
+
+**Base URL:** `https://dashboard.base.org/api/v1/`  
+**Auth:** `x-api-key` header  
+**Rate limit:** 10 req/min/IP (shared across both endpoints)
+
+### Get Opted-In Users
+```bash
+curl "https://dashboard.base.org/api/v1/notifications/app/users?app_url=<url>&notification_enabled=true" \
+  -H "x-api-key: <key>"
+```
+
+### Send Notification
+```bash
+curl -X POST "https://dashboard.base.org/api/v1/notifications/send" \
+  -H "x-api-key: <key>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_url": "<url>",
+    "wallet_addresses": ["0x..."],
+    "title": "Hello!",         # max 30 chars
+    "message": "You have a reward",  # max 200 chars
+    "target_path": "/rewards"  # opens this route in your app
+  }'
+```
+
+**Per-address failure reasons:** `"user has not saved this app"` | `"user has notifications disabled"`
+
+**Deduplication:** Same app+wallet+title+message+path within 24 hours → deduplicated, no duplicate push
+
+---
+
+## 9. Rewards
+
+1. Verify app on [base.dev](https://www.base.dev) — adds your Base builder address
+2. Participate in partner programs, competitions, special campaigns
+
+---
+
+## 10. Base Account (Smart Wallet / OnchainKit)
+
+```bash
+npm install @base-org/account
+```
+
+**Features:** Passkey-secured ERC-4337 smart wallet, SIWE + ERC-6492, Base Pay (USDC), sponsored gas, batch transactions, spend permissions, sub-accounts.
+
+```ts
+import { createBaseAccount } from '@base-org/account';
+const account = await createBaseAccount({ owner: '0xYourEOA', chain: 'base' });
+```
+
+**Provider RPC Methods:**
+- `wallet_sendCalls` — batch transactions in one UserOp
+- `wallet_getCapabilities` — supported wallet features
+- `wallet_connect` — connect + optionally SIWE authenticate
+- `wallet_switchEthereumChain` — switch to Base
+
+**Framework integrations:** wagmi, Privy, RainbowKit, Reown, Thirdweb, CDP
+
+---
+
+## 11. Deployment & Hosting Requirements
+
+**Must have:**
+- Standard HTTPS web app, loadable in mobile browser
+- wagmi/viem for wallet interactions
+- SIWE for authentication
+- Registered on [base.dev](https://www.base.dev) with all metadata filled in
+
+**No longer needed** (post April 9, 2026):
+- `/.well-known/farcaster.json` manifest
+- Neynar webhooks
+- Farcaster SDK
+- FID-based identity
+
+**Base.dev registration fields:** name, icon, tagline, description, screenshots, category, primary URL, builder code
+
+---
+
+## 12. Deprecated Farcaster SDK Methods
+
+| SDK Method | Replacement |
+|------------|-------------|
+| `signIn` | SIWE via wagmi `useSignMessage` |
+| `sendToken` | ERC-20 transfer via `useWriteContract` |
+| `openUrl` | `window.open(url)` |
+| `openMiniApp` | `window.open(url)` |
+| `viewToken` | `https://base.app/coin/base-mainnet/TOKEN_ADDRESS` |
+| `viewProfile` | `https://base.app/profile/WALLET_ADDRESS` |
+| `swapToken` | wagmi/viem swap transactions |
+| `requestCameraAndMicrophoneAccess` | No replacement |
+| `close` | No replacement |
+| `addMiniApp` | Auto-handled by Base App |
+| `viewCast` | Not needed |
+| `composeCast` | Not needed |
+| `ready` | Not needed — app displays on load |
+| User context / FID | `useAccount()` from wagmi |
+
+---
+
+**Full doc saved to:** `/workspace/base_apps_complete_docs.md`
+
+**Key links:**
+- Current docs: https://docs.base.org/apps/
+- Migration guide: https://docs.base.org/apps/quickstart/migrate-to-standard-web-app
+- App registration: https://www.base.dev
+- Dashboard / API keys: https://dashboard.base.org
+- Notifications API: `https://dashboard.base.org/api/v1/notifications/`
+- Builder Code validator: https://builder-code-checker.vercel.app/

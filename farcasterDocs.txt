@@ -1,0 +1,1123 @@
+# Farcaster Mini Apps — Complete Documentation
+
+The full documentation (174,199 bytes / 5,685 lines) has been fetched from `https://miniapps.farcaster.xyz/llms-full.txt` and saved to `/workspace/farcaster-miniapps-docs-full.md`.
+
+---
+
+## COMPLETE DOCUMENTATION FOLLOWS
+
+---
+
+# Farcaster Mini Apps
+
+## Why Farcaster Doesn't Need OAuth 2.0
+
+OAuth exists to let three separate parties (user → platform → third-party app) establish mutual trust. Farcaster is built on a decentralized architecture that collapses this triangle:
+
+### 1. Identity & Authentication
+- **User-owned keys:** A user controlled cryptographic signature proves control of a Farcaster ID—no intermediary.
+- Sign In with X → Sign-in with Farcaster (SIWF)
+- OAuth 2.0 Authorization Flow → Quick Auth
+
+### 2. Data Access & Permissions
+- **Open, replicated data:** Social data like casts, reactions, and profiles live on Snapchain and can be read by anyone.
+- **No permission scopes:** Everything is already public; you filter what you need instead of requesting scopes.
+- **Zero-cost reads:** Sync the chain yourself or hit a public indexer—no rate caps, no $5k+/month fire-hoses.
+- **Cryptographic writes:** Users can delegate a key to applications so the applications can write on their behalf.
+- Centralized APIs → Snapchain + infra services (e.g. Neynar)
+- Access token → no equivalent, data is public
+- Write permissions → App Keys
+
+### Builder Takeaways
+1. Skip OAuth flows—wallet signature = auth.
+2. Forget permission scopes—use filters.
+3. Enjoy building permissionlessly
+
+---
+
+## Getting Started
+
+### Overview
+Mini apps are web apps built with HTML, CSS, and Javascript that can be discovered and used within Farcaster clients. You can use an SDK to access native Farcaster features, like authentication, sending notifications, and interacting with the user's wallet.
+
+### Requirements
+- **Node.js 22.11.0 or higher** (LTS version recommended)
+- A package manager (npm, pnpm, or yarn)
+
+> ⚠️ If you encounter installation errors, verify you're using Node.js 22.11.0 or higher. Earlier versions are not supported.
+
+### Enable Developer Mode
+1. Make sure you're logged in to Farcaster on either mobile or desktop
+2. Go to https://farcaster.xyz/~/settings/developer-tools
+3. Toggle on "Developer Mode"
+4. A developer section will appear on the left side of your desktop display
+
+### Quick Start (CLI)
+```bash
+# npm
+npm create @farcaster/mini-app
+
+# pnpm
+pnpm create @farcaster/mini-app
+
+# yarn
+yarn create @farcaster/mini-app
+```
+
+### Manual Setup
+
+#### Package Manager
+```bash
+npm install @farcaster/miniapp-sdk
+pnpm add @farcaster/miniapp-sdk
+yarn add @farcaster/miniapp-sdk
+```
+
+#### CDN
+```html
+<script type="module">
+  import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk'
+</script>
+```
+
+### Making Your App Display (Ready Signal)
+**CRITICAL**: After your app loads, you MUST call `sdk.actions.ready()` to hide the splash screen and display your content. If you don't call `ready()`, users will see an infinite loading screen.
+
+```javascript
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// After your app is fully loaded and ready to display
+await sdk.actions.ready()
+```
+
+---
+
+## Specification
+
+### Manifest File Format
+
+The manifest is hosted at `/.well-known/farcaster.json` on your app's domain.
+
+#### Full Manifest Schema (TypeScript)
+```ts
+type Manifest = {
+  accountAssociation: {
+    header: string;      // base64url encoded JFS header
+    payload: string;     // base64url encoded payload with domain
+    signature: string;   // base64url encoded signature bytes
+  };
+  miniapp: MiniAppManifest;
+};
+
+type MiniAppManifest = {
+  version: "1";
+  name: string;                    // max 32 chars
+  iconUrl: string;                 // max 1024 chars, min 200x200px, max 1024x1024px
+  homeUrl: string;                 // max 1024 chars
+  imageUrl?: string;               // max 1024 chars, 3:2 ratio recommended
+  buttonTitle?: string;            // max 32 chars
+  splashImageUrl?: string;         // max 1024 chars, 200x200px
+  splashBackgroundColor?: string;  // hex color e.g. #eeccff
+  webhookUrl?: string;             // max 1024 chars
+  description?: string;            // max 170 chars
+  primaryCategory?: AppCategory;
+  tags?: string[];                 // max 5 tags, max 20 chars each
+  heroImageUrl?: string;           // max 1024 chars, 1.91:1 ratio recommended
+  tagline?: string;                // max 30 chars
+  ogTitle?: string;                // max 60 chars
+  ogDescription?: string;          // max 160 chars
+  ogImageUrl?: string;             // max 1024 chars
+  noindex?: boolean;               // exclude from search/discovery
+  requiredChains?: string[];       // CAIP-2 chain identifiers
+  requiredCapabilities?: string[]; // SDK method paths
+  canonicalDomain?: string;        // for domain migration
+};
+```
+
+#### Categories
+```ts
+type AppCategory =
+  | "games"
+  | "social"
+  | "finance"
+  | "utility"
+  | "productivity"
+  | "health-fitness"
+  | "news-media"
+  | "music"
+  | "shopping"
+  | "education"
+  | "developer-tools"
+  | "entertainment"
+  | "art-creativity";
+```
+
+#### Complete Example Manifest
+```json
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjU0NDgsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHg2MWQwMEFENzYwNjhGOEQ0NzQwYzM1OEM4QzAzYUFFYjUxMGI1OTBEIn0",
+    "payload": "eyJkb21haW4iOiJleGFtcGxlLmNvbSJ9",
+    "signature": "MHg3NmRkOWVlMjE4OGEyMjliNzExZjUzOTkxYTc1NmEzMGZjNTA3NmE5OTU5OWJmOWFmYjYyMzAyZWQxMWQ2MWFmNTExYzlhYWVjNjQ3OWMzODcyMTI5MzA2YmJhYjdhMTE0MmRhMjA4MmNjNTM5MTJiY2MyMDRhMWFjZTY2NjE5OTFj"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Example App",
+    "iconUrl": "https://example.com/icon.png",
+    "homeUrl": "https://example.com",
+    "imageUrl": "https://example.com/image.png",
+    "buttonTitle": "Check this out",
+    "splashImageUrl": "https://example.com/splash.png",
+    "splashBackgroundColor": "#eeccff",
+    "webhookUrl": "https://example.com/api/webhook",
+    "description": "A great mini app",
+    "primaryCategory": "games",
+    "tags": ["game", "fun"],
+    "tagline": "Play and earn!",
+    "noindex": false
+  }
+}
+```
+
+---
+
+### Embed Format (fc:miniapp Meta Tags)
+
+Embeds allow individual pages to be shared as rich cards in social feeds.
+
+```html
+<meta property="fc:miniapp" content="..." />
+```
+
+The content is a JSON string with the following schema:
+
+```ts
+type MiniAppEmbed = {
+  version: "next";
+  imageUrl: string;        // 3:2 ratio recommended, max 1024 chars
+  button: {
+    title: string;         // max 32 chars
+    action: {
+      type: "launch_miniapp";
+      name: string;        // max 32 chars
+      url: string;         // max 1024 chars
+      splashImageUrl?: string;
+      splashBackgroundColor?: string;
+    };
+  };
+};
+```
+
+#### Example Embed
+```html
+<meta property="fc:miniapp" content='{"version":"next","imageUrl":"https://example.com/og.png","button":{"title":"Play Game","action":{"type":"launch_miniapp","name":"My Game","url":"https://example.com/game","splashImageUrl":"https://example.com/splash.png","splashBackgroundColor":"#ffffff"}}}' />
+```
+
+**Key distinction**: Manifest = App's passport (one per domain). Embed = Content's business card (one per shareable page).
+
+---
+
+## SDK Setup
+
+### Install
+```bash
+npm install @farcaster/miniapp-sdk
+```
+
+### Basic Usage
+```javascript
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Call ready() after app loads
+await sdk.actions.ready()
+```
+
+---
+
+## Context (SDK)
+
+The `sdk.context` object provides information about the environment your Mini App is running in.
+
+```ts
+type MiniAppContext = {
+  user: UserContext;
+  location?: LocationContext;
+  client: ClientContext;
+  features?: ClientFeatures;
+};
+```
+
+### `sdk.context.user`
+
+```ts
+type UserContext = {
+  fid: number;
+  username?: string;
+  displayName?: string;
+  pfpUrl?: string;
+  location?: AccountLocation;
+};
+```
+
+Example:
+```ts
+> sdk.context.user
+{
+  "fid": 6841,
+  "username": "deodad",
+  "displayName": "Tony D'Addeo",
+  "pfpUrl": "https://i.imgur.com/dMoIan7.jpg",
+  "location": {
+    "placeId": "ChIJLwPMoJm1RIYRetVp1EtGm10",
+    "description": "Austin, TX, USA"
+  }
+}
+```
+
+> ⚠️ `user` context is untrusted—it is passed by the host app and not cryptographically verified. Use Quick Auth for trusted identity.
+
+### `sdk.context.location` (Launch Context)
+
+```ts
+type LocationContext =
+  | CastEmbedLocationContext
+  | CastShareLocationContext
+  | NotificationLocationContext
+  | LauncherLocationContext
+  | ChannelLocationContext
+  | OpenMiniAppLocationContext;
+```
+
+#### Cast Embed
+```ts
+{
+  type: "cast_embed",
+  embed: "https://myapp.example.com",
+  cast: {
+    author: { fid: 3621, username: "alice", displayName: "Alice", pfpUrl: "..." },
+    hash: "0xa2fbef8c8e4d00d8f84ff45f9763b8bae2c5c544",
+    timestamp: 1749160866000,
+    text: "Check out this awesome mini app!",
+    embeds: ["https://myapp.example.com"],
+    channelKey: "farcaster"
+  }
+}
+```
+
+#### Notification Context
+```ts
+{
+  type: "notification",
+  notification: {
+    notificationId: "f7e9ebaf-92f0-43b9-a410-ad8c24f3333b",
+    title: "Yoinked!",
+    body: "horsefacts captured the flag from you."
+  }
+}
+```
+
+#### Launcher
+```ts
+{ type: "launcher" }
+```
+
+#### Open Mini App (from another app)
+```ts
+{
+  type: "open_miniapp",
+  referrerDomain: "example-app.com"
+}
+```
+
+#### Cast Share
+```ts
+{
+  type: "cast_share",
+  cast: { author: {...}, hash: "0x...", text: "..." }
+}
+```
+
+### `sdk.context.client`
+
+```ts
+type ClientContext = {
+  platformType?: 'web' | 'mobile';
+  clientFid: number;         // e.g. 9152 for Warpcast
+  added: boolean;            // whether user has added the app
+  notificationDetails?: { url: string; token: string; };
+  safeAreaInsets?: { top: number; bottom: number; left: number; right: number; };
+};
+```
+
+Example:
+```ts
+> sdk.context.client
+{
+  platformType: "mobile",
+  clientFid: 9152,
+  added: true,
+  safeAreaInsets: { top: 0, bottom: 20, left: 0, right: 0 },
+  notificationDetails: {
+    url: "https://api.farcaster.xyz/v1/frame-notifications",
+    token: "a05059ef2415c67b08ecceb539201cbc6"
+  }
+}
+```
+
+#### Safe Area Insets Usage
+```jsx
+<div style={{
+  marginTop: context.client.safeAreaInsets.top,
+  marginBottom: context.client.safeAreaInsets.bottom,
+  marginLeft: context.client.safeAreaInsets.left,
+  marginRight: context.client.safeAreaInsets.right,
+}}>
+  ...your app view
+</div>
+```
+
+### `sdk.context.features`
+```ts
+type ClientFeatures = {
+  haptics: boolean;
+  cameraAndMicrophoneAccess?: boolean;
+};
+```
+
+---
+
+## Actions (SDK)
+
+### `sdk.actions.ready()`
+Hides the splash screen. **Must be called** or users see an infinite loading screen.
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+await sdk.actions.ready()
+```
+
+#### With splash config override:
+```ts
+await sdk.actions.ready({
+  disableNativeGestures: true  // prevents swipe-to-close on mobile
+})
+```
+
+---
+
+### `sdk.actions.close()`
+Close the Mini App.
+
+```ts
+await sdk.actions.close()
+```
+
+---
+
+### `sdk.actions.openUrl()`
+Open a URL in an external browser.
+
+```ts
+await sdk.actions.openUrl({ url: 'https://example.com' })
+```
+
+---
+
+### `sdk.actions.addMiniApp()`
+Prompt the user to add the Mini App to their Farcaster client.
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+const result = await sdk.actions.addMiniApp()
+// result.added === true if user added the app
+```
+
+> ⚠️ Only works on production domain. Will NOT work with tunnel URLs (ngrok, etc.) during development.
+
+---
+
+### `sdk.actions.openMiniApp()`
+Open another Mini App from within your app.
+
+```ts
+await sdk.actions.openMiniApp({
+  domain: 'example-app.com',
+  path: '/game?ref=myapp'  // optional
+})
+```
+
+The opened app will receive `context.location.type === 'open_miniapp'` with `referrerDomain` set to your domain.
+
+---
+
+### `sdk.actions.composeCast()`
+Open the cast composer with pre-filled content.
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+const result = await sdk.actions.composeCast({
+  text: "Check out this app!",
+  embeds: ["https://example.com/my-page"],  // max 2 embeds
+  // close: true  // close the mini app when composing
+})
+// result.cast contains the published cast if successful
+```
+
+Return value:
+```ts
+type ComposeCastResult =
+  | { success: true; cast: { hash: string; } }
+  | { success: false; reason: 'rejected_by_user' }
+```
+
+---
+
+### `sdk.actions.viewCast()`
+Navigate to a specific cast.
+
+```ts
+await sdk.actions.viewCast({ hash: '0x6a112e2d35e2d2008e25dd29811e8769d1edd9ca' })
+
+// With author username
+await sdk.actions.viewCast({ hash: '0x78c086e5', authorUsername: 'six' })
+
+// Close app when opening cast
+await sdk.actions.viewCast({ hash: '0x...', close: true })
+```
+
+---
+
+### `sdk.actions.viewProfile()`
+Display a user's Farcaster profile.
+
+```ts
+await sdk.actions.viewProfile({ fid: 6841 })
+```
+
+---
+
+### `sdk.actions.viewToken()`
+Display a token (CAIP-19 asset ID).
+
+```ts
+// Base USDC
+await sdk.actions.viewToken({ token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' })
+```
+
+---
+
+### `sdk.actions.sendToken()`
+Send tokens to an address.
+
+```ts
+await sdk.actions.sendToken({
+  token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  amount: '1000000',  // in token base units
+  recipientAddress: '0x...',
+})
+```
+
+---
+
+### `sdk.actions.swapToken()`
+Open the swap form with pre-filled tokens.
+
+```ts
+await sdk.actions.swapToken({
+  sellToken: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  buyToken: 'eip155:10/native',
+  sellAmount: '1000000',
+})
+```
+
+Return value:
+```ts
+type SwapTokenResult =
+  | { success: true; swap: { transactions: `0x${string}`[] } }
+  | { success: false; reason: 'rejected_by_user' | 'swap_failed'; error?: { error: string; message?: string } }
+```
+
+---
+
+### `sdk.actions.signIn()` (Sign In with Farcaster)
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+const result = await sdk.actions.signIn({ nonce: 'your-nonce' })
+// result.signature — the SIWF signature
+// result.message — the SIWF message
+```
+
+---
+
+### `sdk.actions.signManifest()`
+Sign the app manifest for domain verification.
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+import * as SignManifest from '@farcaster/miniapp-sdk'
+
+try {
+  const result = await sdk.actions.signManifest({ domain: 'example.com' })
+  // result.signature, result.header, result.payload
+} catch (error) {
+  if (error instanceof SignManifest.RejectedByUser) {
+    console.log('User rejected manifest signing')
+  } else if (error instanceof SignManifest.InvalidDomain) {
+    console.log('Invalid domain format')
+  } else if (error instanceof SignManifest.GenericError) {
+    console.log('Signing failed:', error.message)
+  }
+}
+```
+
+---
+
+## Authentication — Quick Auth
+
+Quick Auth is a lightweight service built on top of Sign In with Farcaster (SIWF) that provides easy authenticated sessions.
+
+### Frontend — Make Authenticated Requests
+
+```tsx
+import React, { useState, useEffect } from "react";
+import { sdk } from "@farcaster/miniapp-sdk";
+
+export function App() {
+  const [user, setUser] = useState<{ fid: number }>();
+
+  useEffect(() => {
+    (async () => {
+      // sdk.quickAuth.fetch automatically adds Bearer token header
+      const res = await sdk.quickAuth.fetch(`${BACKEND_ORIGIN}/me`);
+      if (res.ok) {
+        setUser(await res.json());
+        sdk.actions.ready()
+      }
+    })()
+  }, [])
+
+  if (!user) return null;
+  return <div>hello, {user.fid}</div>
+}
+```
+
+### Frontend — Get Token Directly
+
+```html
+<script type="module">
+  import { sdk } from "https://esm.sh/@farcaster/miniapp-sdk";
+  const { token } = await sdk.quickAuth.getToken();
+  // Use token as: Authorization: Bearer ${token}
+</script>
+```
+
+### Backend — Validate Token
+
+```bash
+npm install @farcaster/quick-auth
+```
+
+```ts
+import { Errors, createClient } from '@farcaster/quick-auth'
+
+const client = createClient()
+
+// In your middleware:
+const payload = await client.verifyJwt({
+  token: bearerToken,
+  domain: 'your-app-domain.com',
+})
+// payload.sub = FID of authenticated user
+```
+
+### JWT Payload Structure
+```json
+{
+  "iat": 1747764819,
+  "iss": "https://auth.farcaster.xyz",
+  "exp": 1747768419,
+  "sub": 6841,               // FID of the user
+  "aud": "miniapps.farcaster.xyz"
+}
+```
+
+### Performance Optimization
+```html
+<link rel="preconnect" href="https://auth.farcaster.xyz" />
+```
+
+### SDK Quick Auth Methods
+| Method | Description |
+|--------|-------------|
+| `sdk.quickAuth.fetch(url, options?)` | Make authenticated fetch (auto-adds Bearer token) |
+| `sdk.quickAuth.getToken()` | Get/refresh a Quick Auth JWT |
+| `sdk.quickAuth.token` | Returns current token if in memory (sync) |
+
+---
+
+## Notifications
+
+### Overview
+1. User enables notifications → Farcaster client generates a unique token → sends to your `webhookUrl`
+2. To send notification → POST to the notification URL with the token
+3. User disables notifications → your server receives an event → token is invalidated
+
+### Setup: Add webhookUrl to Manifest
+```json
+{
+  "miniapp": {
+    "webhookUrl": "https://example.com/api/webhook"
+  }
+}
+```
+
+### Webhook Events
+
+Your server receives POST requests to `webhookUrl` for these events:
+
+#### `miniapp_added`
+```json
+{
+  "event": "miniapp_added",
+  "notificationDetails": {
+    "url": "https://api.farcaster.xyz/v1/frame-notifications",
+    "token": "a05059ef2415c67b08ecceb539201cbc6"
+  }
+}
+```
+
+#### `miniapp_removed`
+```json
+{ "event": "miniapp_removed" }
+```
+
+#### `notifications_enabled`
+```json
+{
+  "event": "notifications_enabled",
+  "notificationDetails": {
+    "url": "https://api.farcaster.xyz/v1/frame-notifications",
+    "token": "a05059ef2415c67b08ecceb539201cbc6"
+  }
+}
+```
+
+#### `notifications_disabled`
+```json
+{ "event": "notifications_disabled" }
+```
+
+### Verifying Webhook Events
+```bash
+npm install @farcaster/miniapp-node
+```
+
+```ts
+import { parseWebhookEvent, verifyAppKeyWithNeynar } from "@farcaster/miniapp-node";
+
+try {
+  const data = await parseWebhookEvent(requestJson, verifyAppKeyWithNeynar);
+  // data.event = event type
+  // data.fid = user FID
+} catch (e) {
+  // Handle InvalidDataError, InvalidAppKeyError, etc.
+}
+```
+
+### Sending Notifications
+
+POST to the `url` from the notification token with:
+```json
+{
+  "notificationId": "unique-id-for-deduplication",
+  "title": "Notification Title",
+  "body": "Notification body text",
+  "targetUrl": "https://example.com/specific-page",
+  "tokens": ["token1", "token2"]  // batch up to 100 tokens
+}
+```
+
+> ⚠️ `targetUrl` hostname must EXACTLY match your registered domain. `www.example.com` ≠ `example.com`
+
+#### Response Format
+```json
+{
+  "result": {
+    "successfulTokens": ["token1"],
+    "invalidTokens": ["token2"],
+    "rateLimitedTokens": []
+  }
+}
+```
+
+#### Rate Limits (Warpcast)
+- 1 notification per 30 seconds per token
+- 100 notifications per day per token
+- Batch up to 100 tokens per request
+
+#### Deduplication
+Use stable `notificationId` values. The key `(fid, notificationId)` deduplicates over 24 hours. Example: `"daily-reminder-05-06-2024"`.
+
+---
+
+## Wallet Connections
+
+### Ethereum Wallet
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Get an EIP-1193 compatible provider
+const provider = await sdk.wallet.getEthereumProvider()
+
+// Use with ethers.js
+import { BrowserProvider } from 'ethers'
+const ethersProvider = new BrowserProvider(provider)
+const signer = await ethersProvider.getSigner()
+
+// Use with viem
+import { createWalletClient, custom } from 'viem'
+import { base } from 'viem/chains'
+const walletClient = createWalletClient({
+  chain: base,
+  transport: custom(provider)
+})
+
+// Request accounts
+const accounts = await provider.request({ method: 'eth_requestAccounts' })
+```
+
+#### Supported RPC Methods
+- `eth_requestAccounts`
+- `eth_sendTransaction`
+- `eth_signTypedData_v4`
+- `personal_sign`
+- `wallet_switchEthereumChain`
+- Standard read methods via provider
+
+### Solana Wallet
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+const provider = await sdk.wallet.getSolanaProvider()
+
+// Connect
+const { publicKey } = await provider.connect()
+
+// Sign and send transaction
+import { Transaction } from '@solana/web3.js'
+const tx = new Transaction()
+// ... build transaction ...
+const { signature } = await provider.signAndSendTransaction(tx)
+
+// Sign message
+const message = new TextEncoder().encode('Hello Farcaster')
+const { signature } = await provider.signMessage(message)
+
+// Sign transaction (without sending)
+const signedTx = await provider.signTransaction(tx)
+```
+
+#### Detecting Wallet Capabilities
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Check supported chains
+const chains = await sdk.getChains()
+// Returns CAIP-2 identifiers e.g. ["eip155:1", "eip155:8453", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"]
+
+// Check supported SDK methods
+const capabilities = await sdk.getCapabilities()
+// e.g. ["wallet.getEthereumProvider", "wallet.getSolanaProvider", "actions.composeCast", ...]
+```
+
+---
+
+## Transactions
+
+### Ethereum Transactions
+```ts
+const provider = await sdk.wallet.getEthereumProvider()
+
+// Send ETH
+const txHash = await provider.request({
+  method: 'eth_sendTransaction',
+  params: [{
+    from: userAddress,
+    to: recipientAddress,
+    value: '0x38D7EA4C68000',  // 0.001 ETH in wei, hex
+    gas: '0x5208',
+  }]
+})
+
+// Sign typed data (EIP-712)
+const signature = await provider.request({
+  method: 'eth_signTypedData_v4',
+  params: [userAddress, JSON.stringify(typedData)]
+})
+
+// Switch chain
+await provider.request({
+  method: 'wallet_switchEthereumChain',
+  params: [{ chainId: '0x2105' }]  // Base mainnet = 8453 = 0x2105
+})
+```
+
+### High-Level Token Actions
+
+```ts
+// Send token
+await sdk.actions.sendToken({
+  token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // CAIP-19
+  amount: '1000000',  // base units (1 USDC = 1,000,000)
+  recipientAddress: '0x...',
+})
+
+// Swap tokens
+const result = await sdk.actions.swapToken({
+  sellToken: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  buyToken: 'eip155:10/native',
+  sellAmount: '1000000',
+})
+```
+
+---
+
+## Haptics
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Impact feedback
+await sdk.haptics.impactOccurred('light')    // light, medium, heavy, soft, rigid
+await sdk.haptics.impactOccurred('medium')
+
+// Notification feedback
+await sdk.haptics.notificationOccurred('success')   // success, warning, error
+await sdk.haptics.notificationOccurred('error')
+
+// Selection changed
+await sdk.haptics.selectionChanged()
+```
+
+---
+
+## Back Navigation
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Enable back button
+sdk.back.show({
+  fallbackUrl: 'https://example.com'  // URL to navigate to if no history
+})
+
+// Hide back button
+sdk.back.hide()
+```
+
+---
+
+## Client Events
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Listen for events
+sdk.on('miniappAdded', () => {
+  console.log('User added the app')
+})
+
+sdk.on('miniappRemoved', () => {
+  console.log('User removed the app')
+})
+
+sdk.on('notificationsEnabled', (data) => {
+  // data.notificationDetails.token, data.notificationDetails.url
+  console.log('Notifications enabled', data)
+})
+
+sdk.on('notificationsDisabled', () => {
+  console.log('Notifications disabled')
+})
+
+// Cleanup
+sdk.removeListener('miniappAdded', handler)
+sdk.removeAllListeners()
+```
+
+---
+
+## Detecting if Running in Mini App
+
+```ts
+import { sdk } from '@farcaster/miniapp-sdk'
+
+// Check if running inside a Farcaster client
+const isInMiniApp = await sdk.isInMiniApp()
+// Returns true if in a Mini App context, false if running as a standalone web page
+```
+
+---
+
+## Sharing Your App
+
+### Share via Cast
+```ts
+await sdk.actions.composeCast({
+  text: "Check out my app!",
+  embeds: ["https://yourapp.com/page"]
+})
+```
+
+### Share Extensions
+Mini Apps can receive shared content from users sharing casts to your app. When a user shares a cast to your app:
+- `sdk.context.location.type === 'cast_share'`
+- `sdk.context.location.cast` contains the full cast data
+
+Register your app as a share extension in your manifest to appear in the share menu.
+
+---
+
+## Publishing
+
+### Steps
+1. **Choose a stable domain** (can't be changed later; `www.example.com` ≠ `example.com`)
+2. **Host manifest** at `/.well-known/farcaster.json`
+3. **Create account association** using the [Manifest Tool](https://farcaster.xyz/~/developers/mini-apps/manifest)
+4. **Register** with Farcaster
+5. **Add embed meta tags** to pages you want shareable
+
+### Account Association
+The `accountAssociation` in your manifest cryptographically links your Farcaster FID to your domain. Generate it via the developer tools at https://farcaster.xyz/~/developers/mini-apps/manifest.
+
+### Farcaster Hosted Manifests
+Instead of self-hosting, redirect `/.well-known/farcaster.json` to Farcaster's hosted manifest service:
+
+```ts
+// Next.js
+const nextConfig = {
+  async redirects() {
+    return [{
+      source: '/.well-known/farcaster.json',
+      destination: 'https://api.farcaster.xyz/miniapps/hosted-manifest/YOUR_ID',
+      permanent: false,
+    }]
+  },
+}
+```
+
+---
+
+## Domain Migration (canonicalDomain)
+
+To migrate your app to a new domain:
+
+1. **New domain manifest** — full manifest with account association from same FID
+2. **Old domain manifest** — add `canonicalDomain: "new-domain.com"`
+3. **New domain manifest** — also add `canonicalDomain: "new-domain.com"` (self-referential)
+
+```json
+// Old domain: old-domain.com/.well-known/farcaster.json
+{
+  "miniapp": {
+    "canonicalDomain": "new-domain.com"
+  }
+}
+
+// New domain: new-domain.com/.well-known/farcaster.json
+{
+  "miniapp": {
+    "canonicalDomain": "new-domain.com"
+  }
+}
+```
+
+**Rules:**
+- ✅ `app.new-domain.com`
+- ✅ `new-domain.com`
+- ❌ `https://new-domain.com` (no protocol)
+- ❌ `new-domain.com:3000` (no port)
+- ❌ `new-domain.com/app` (no path)
+
+> ⚠️ Keep the same `webhookUrl` in your new manifest to avoid breaking existing notification tokens.
+
+---
+
+## App Discovery & Search
+
+### Requirements for Search Indexing
+1. `noindex: true` NOT set in manifest
+2. Manifest registered with Farcaster
+3. Recent user activity and engagement
+4. Working images (`iconUrl` must return valid `image/*` content-type)
+5. Production domain (not ngrok, replit.dev, localtunnel, etc.)
+6. Required fields: `name`, `iconUrl`, `homeUrl`, `description`
+
+### Ranking Signals
+- Number of users who opened the app
+- Number of users who added the app to their collection
+- EVM and SOL transaction volume within the app
+- Trending score based on recent engagement
+
+---
+
+## Universal Links
+
+Mini Apps support universal links that work both in Farcaster clients and regular browsers:
+
+```ts
+// Open a mini app via URL
+// https://farcaster.xyz/~/apps/open?domain=example.com&path=/game
+```
+
+---
+
+## Manifest vs Embed — Key Differences
+
+| | Manifest | Embed |
+|---|---|---|
+| Location | `/.well-known/farcaster.json` | `<meta property="fc:miniapp">` on each page |
+| Purpose | App identity & registration | Page-level social sharing card |
+| Frequency | One per domain | One per shareable page |
+| Required for | Notifications, app stores, adding app | Rich cards in social feeds |
+
+---
+
+## Compatibility & Supported Chains
+
+### Supported Chains (CAIP-2)
+- `eip155:1` — Ethereum Mainnet
+- `eip155:10` — Optimism
+- `eip155:8453` — Base
+- `eip155:7777777` — Zora
+- `eip155:666666666` — Degen Chain
+- `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` — Solana Mainnet
+
+### SDK Version Compatibility
+Check `sdk.version` and use `sdk.getCapabilities()` for runtime feature detection.
+
+---
+
+## Key Notes & Gotchas
+
+1. **MUST call `sdk.actions.ready()`** or users see infinite loading screen
+2. **`www.example.com` ≠ `example.com`** — treated as completely separate apps
+3. **`addMiniApp()` only works on production domain** — not tunnel URLs
+4. **`targetUrl` in notifications must exactly match registered domain** — mismatches permanently invalidate tokens
+5. **Frames v2 = Mini Apps** — same thing, rebranded
+6. **Node.js 22.11.0+** required for SDK
+7. **Quick Auth server**: `https://auth.farcaster.xyz`
+8. **Webhook verification package**: `@farcaster/miniapp-node`
+9. **Backend JWT validation package**: `@farcaster/quick-auth`
+10. **Production domain required** for search indexing (no dev tunnels)
+
+---
+
+Full documentation saved to `/workspace/farcaster-miniapps-docs-full.md` (174,199 bytes / 5,685 lines — the complete raw source from https://miniapps.farcaster.xyz/llms-full.txt).

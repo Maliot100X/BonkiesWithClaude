@@ -1,0 +1,939 @@
+All 108,578 characters of the complete documentation have been fetched and saved to `/workspace/tma_docs.md`. All sections are confirmed present. Here is the **complete Telegram Mini Apps documentation** from `https://core.telegram.org/bots/webapps`:
+
+---
+
+# Telegram Mini Apps — Complete Documentation
+
+> Source: https://core.telegram.org/bots/webapps (fetched April 29, 2026)  
+> Full file saved at `/workspace/tma_docs.md` (108,578 chars)
+
+---
+
+## Setup / Initialization
+
+To connect your Mini App to the Telegram client, place this script in `<head>` **before any other scripts**:
+
+```html
+<script src="https://telegram.org/js/telegram-web-app.js?62"></script>
+```
+
+This makes `window.Telegram.WebApp` available.
+
+---
+
+## `window.Telegram.WebApp` — Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `initData` | String | Raw data string transferred to the Mini App. **WARNING: Validate on server before using.** |
+| `initDataUnsafe` | WebAppInitData | Parsed init data object. **WARNING: Do not trust without server-side validation.** |
+| `version` | String | Bot API version available in user's Telegram app. |
+| `platform` | String | Platform name of user's Telegram app. |
+| `colorScheme` | String | `"light"` or `"dark"`. Also CSS var `var(--tg-color-scheme)`. |
+| `themeParams` | ThemeParams | Current theme settings. |
+| `isActive` *(Bot API 8.0+)* | Boolean | `true` if Mini App is active; `false` if minimized. |
+| `isExpanded` | Boolean | `true` if expanded to max height. |
+| `viewportHeight` | Float | Current visible height. CSS: `var(--tg-viewport-height)`. Not suitable for pinning bottom elements — use `viewportStableHeight` instead. |
+| `viewportStableHeight` | Float | Stable visible height (not updated during gestures/animations). CSS: `var(--tg-viewport-stable-height)`. |
+| `headerColor` | String | Current header color in `#RRGGBB` format. |
+| `backgroundColor` | String | Current background color in `#RRGGBB` format. |
+| `bottomBarColor` *(Bot API 7.10+)* | String | Current bottom bar color in `#RRGGBB` format. |
+| `isClosingConfirmationEnabled` | Boolean | `true` if closing confirmation dialog is enabled. |
+| `isVerticalSwipesEnabled` *(Bot API 7.7+)* | Boolean | `true` if vertical swipes to close/minimize are enabled. |
+| `isFullscreen` *(Bot API 8.0+)* | Boolean | `true` if Mini App is in full-screen mode. |
+| `isOrientationLocked` *(Bot API 8.0+)* | Boolean | `true` if orientation is locked. |
+| `safeAreaInset` *(Bot API 8.0+)* | SafeAreaInset | Device safe area insets. |
+| `contentSafeAreaInset` *(Bot API 8.0+)* | ContentSafeAreaInset | Content safe area insets (avoids Telegram UI). |
+| `BackButton` | BackButton | Back button object. |
+| `MainButton` | BottomButton | Alias for `BottomButton` (primary). |
+| `SecondaryButton` *(Bot API 7.10+)* | BottomButton | Secondary bottom button. |
+| `SettingsButton` *(Bot API 7.0+)* | SettingsButton | Settings button in context menu. |
+| `HapticFeedback` | HapticFeedback | Haptic feedback controller. |
+| `CloudStorage` *(Bot API 6.9+)* | CloudStorage | Key-value cloud storage. |
+| `BiometricManager` *(Bot API 7.2+)* | BiometricManager | Biometric authentication manager. |
+| `Accelerometer` *(Bot API 8.0+)* | Accelerometer | Device accelerometer data. |
+| `DeviceOrientation` *(Bot API 8.0+)* | DeviceOrientation | Device orientation data. |
+| `Gyroscope` *(Bot API 8.0+)* | Gyroscope | Device gyroscope data. |
+| `LocationManager` *(Bot API 8.0+)* | LocationManager | Geolocation manager. |
+| `DeviceStorage` *(Bot API 9.0+)* | DeviceStorage | Persistent local device storage. |
+| `SecureStorage` *(Bot API 9.0+)* | SecureStorage | Secure local device storage. |
+
+---
+
+## `window.Telegram.WebApp` — Methods
+
+| Method | Description |
+|---|---|
+| `isVersionAtLeast(version)` | Returns `true` if Bot API version ≥ `version`. |
+| `setHeaderColor(color)` | Sets header color. `color` = `"bg_color"`, `"secondary_bg_color"`, or `#RRGGBB`. |
+| `setBackgroundColor(color)` | Sets background color. Same color values. |
+| `setBottomBarColor(color)` *(Bot API 7.10+)* | Sets bottom bar color. Same color values. |
+| `enableClosingConfirmation()` | Enables confirmation dialog when closing Mini App. |
+| `disableClosingConfirmation()` | Disables closing confirmation dialog. |
+| `enableVerticalSwipes()` *(Bot API 7.7+)* | Enables vertical swipe to close/minimize. |
+| `disableVerticalSwipes()` *(Bot API 7.7+)* | Disables vertical swipe gestures. |
+| `isVersionAtLeast(version)` | Checks if running version is ≥ specified. |
+| `onEvent(eventType, eventHandler)` | Subscribe to events. |
+| `offEvent(eventType, eventHandler)` | Unsubscribe from events. |
+| `sendData(data)` | Sends string data to the bot (keyboard button Mini Apps only). Closes the Mini App after sending. Max 4096 bytes. |
+| `switchInlineQuery(query[, choose_chat_types])` | Switches to inline mode with optional query. `choose_chat_types` can be `["users","bots","groups","channels"]`. |
+| `openLink(url[, options])` | Opens URL in external browser. `options.try_instant_view` (bool) to open in Instant View. |
+| `openTelegramLink(url)` | Opens a Telegram link inside the app (does NOT close Mini App since Bot API 7.0). |
+| `openInvoice(url[, callback])` | Opens an invoice. `callback(status)` where status is `"paid"`, `"cancelled"`, `"failed"`, `"pending"`. |
+| `shareToStory(media_url[, params])` *(Bot API 7.8+)* | Opens native story editor with `media_url`. Optional `params`: `{text, widget_link: {url, name}}`. |
+| `shareMessage(msg_id[, callback])` *(Bot API 8.0+)* | Shares a prepared message. `callback(sent)` bool. |
+| `setEmojiStatus(custom_emoji_id[, params[, callback]])` *(Bot API 8.0+)* | Prompts user to set emoji status. `params`: `{duration}`. `callback(set)` bool. |
+| `requestEmojiStatusAccess([callback])` *(Bot API 8.0+)* | Requests permission to update emoji status via Bot API. `callback(granted)` bool. |
+| `downloadFile(params[, callback])` *(Bot API 8.0+)* | Shows native download dialog. `params`: `{url, file_name}`. `callback(accepted)` bool. |
+| `showPopup(params[, callback])` | Shows popup. `params`: `{title, message, buttons: [{id, type, text}]}`. `callback(button_id)`. Button types: `"default"`, `"ok"`, `"close"`, `"cancel"`, `"destructive"`. |
+| `showAlert(message[, callback])` | Shows alert dialog. `callback()` after user closes. |
+| `showConfirm(message[, callback])` | Shows confirm dialog. `callback(confirmed)` bool. |
+| `showScanQrPopup(params[, callback])` | Opens QR scanner. `params`: `{text}` (optional hint text). `callback(text)` returns scanned text; return `true` to close popup. |
+| `closeScanQrPopup()` | Closes QR scanner popup. |
+| `readTextFromClipboard([callback])` | Reads clipboard text. `callback(text)` — `null` if denied or non-text. |
+| `requestWriteAccess([callback])` *(Bot API 6.9+)* | Requests permission to send messages. `callback(granted)` bool. |
+| `requestContact([callback])` *(Bot API 6.9+)* | Requests user's phone number. `callback(sent)` bool. |
+| `requestChat(params[, callback])` *(April 2026)* | Requests user to select a chat. `callback(chat_info)`. |
+| `hideKeyboard()` *(Bot API 9.1+)* | Hides the keyboard. |
+| `ready()` | Informs Telegram that the Mini App is ready to be displayed. Hides loading placeholder. Call as early as possible when interface is ready. |
+| `expand()` | Expands Mini App to maximum height. |
+| `close([params])` | Closes the Mini App. Optional `params.return_back` bool. |
+| `requestFullscreen()` *(Bot API 8.0+)* | Requests full-screen mode. |
+| `exitFullscreen()` *(Bot API 8.0+)* | Exits full-screen mode. |
+| `lockOrientation()` *(Bot API 8.0+)* | Locks screen orientation. |
+| `unlockOrientation()` *(Bot API 8.0+)* | Unlocks screen orientation. |
+| `addToHomeScreen()` *(Bot API 8.0+)* | Prompts user to add Mini App to home screen. |
+| `checkHomeScreenStatus([callback])` *(Bot API 8.0+)* | Checks home screen support/status. `callback(status)`: `"unsupported"`, `"unknown"`, `"added"`, `"missed"`. |
+
+---
+
+## Events Available for Mini Apps
+
+Subscribe/unsubscribe with `Telegram.WebApp.onEvent(eventType, handler)` / `offEvent(eventType, handler)`.
+
+| Event | When fired | Handler receives |
+|---|---|---|
+| `themeChanged` | Theme params changed | — |
+| `viewportChanged` | Viewport size changed | `{isStateStable}` |
+| `safeAreaChanged` *(Bot API 8.0+)* | Safe area inset changed | — |
+| `contentSafeAreaChanged` *(Bot API 8.0+)* | Content safe area inset changed | — |
+| `mainButtonClicked` | Main (primary) bottom button clicked | — |
+| `secondaryButtonClicked` *(Bot API 7.10+)* | Secondary bottom button clicked | — |
+| `backButtonClicked` | Back button clicked | — |
+| `settingsButtonClicked` | Settings button clicked | — |
+| `invoiceClosed` | Invoice closed | `{url, status}` — status: `"paid"`, `"cancelled"`, `"failed"`, `"pending"` |
+| `popupClosed` | Popup closed | `{button_id}` (null if closed without button) |
+| `qrTextReceived` | QR scanned | `{data}` |
+| `scanQrPopupClosed` *(Bot API 7.7+)* | QR popup closed | — |
+| `clipboardTextReceived` | Clipboard text read | `{data}` (null if denied/non-text) |
+| `writeAccessRequested` | Write access request result | `{status}` — `"allowed"` or `"cancelled"` |
+| `contactRequested` | Contact share result | `{status}` — `"sent"` or `"cancelled"` |
+| `activated` *(Bot API 8.0+)* | Mini App became active | — |
+| `deactivated` *(Bot API 8.0+)* | Mini App minimized/deactivated | — |
+| `fullscreenChanged` *(Bot API 8.0+)* | Fullscreen state changed | — |
+| `fullscreenFailed` *(Bot API 8.0+)* | Fullscreen request failed | `{error}` — `"UNSUPPORTED"` or `"ALREADY_FULLSCREEN"` |
+| `homeScreenAdded` *(Bot API 8.0+)* | Added to home screen | — |
+| `homeScreenChecked` *(Bot API 8.0+)* | Home screen status checked | `{status}` |
+| `accelerometerStarted` *(Bot API 8.0+)* | Accelerometer started | — |
+| `accelerometerStopped` *(Bot API 8.0+)* | Accelerometer stopped | — |
+| `accelerometerChanged` *(Bot API 8.0+)* | Accelerometer data updated | — |
+| `accelerometerFailed` *(Bot API 8.0+)* | Accelerometer start failed | `{error}` — `"UNSUPPORTED"` |
+| `deviceOrientationStarted` *(Bot API 8.0+)* | Device orientation started | — |
+| `deviceOrientationStopped` *(Bot API 8.0+)* | Device orientation stopped | — |
+| `deviceOrientationChanged` *(Bot API 8.0+)* | Device orientation data updated | — |
+| `deviceOrientationFailed` *(Bot API 8.0+)* | Device orientation failed | `{error}` — `"UNSUPPORTED"` |
+| `gyroscopeStarted` *(Bot API 8.0+)* | Gyroscope started | — |
+| `gyroscopeStopped` *(Bot API 8.0+)* | Gyroscope stopped | — |
+| `gyroscopeChanged` *(Bot API 8.0+)* | Gyroscope data updated | — |
+| `gyroscopeFailed` *(Bot API 8.0+)* | Gyroscope start failed | `{error}` — `"UNSUPPORTED"` |
+| `locationManagerUpdated` *(Bot API 8.0+)* | Location manager state changed | — |
+| `locationRequested` *(Bot API 8.0+)* | Location data received | `{locationData}` |
+| `shareMessageSent` *(Bot API 8.0+)* | Share message succeeded | — |
+| `shareMessageFailed` *(Bot API 8.0+)* | Share message failed | `{error}` — `"UNSUPPORTED"`, `"MESSAGE_EXPIRED"`, `"MESSAGE_SEND_FAILED"`, `"USER_DECLINED"`, `"UNKNOWN_ERROR"` |
+| `emojiStatusSet` *(Bot API 8.0+)* | Emoji status set | — |
+| `emojiStatusFailed` *(Bot API 8.0+)* | Emoji status set failed | `{error}` — `"UNSUPPORTED"`, `"SUGGESTED_EMOJI_INVALID"`, `"DURATION_INVALID"`, `"USER_DECLINED"`, `"SERVER_ERROR"`, `"UNKNOWN_ERROR"` |
+| `emojiStatusAccessRequested` *(Bot API 8.0+)* | Emoji status access request result | `{status}` — `"allowed"` or `"cancelled"` |
+| `fileDownloadRequested` *(Bot API 8.0+)* | File download dialog shown | `{status}` — `"downloading"` or `"cancelled"` |
+
+---
+
+## ThemeParams
+
+Accessed via `Telegram.WebApp.themeParams`. All fields optional.
+
+| Field | Type | Description |
+|---|---|---|
+| `bg_color` | String | Background color `#RRGGBB`. CSS: `var(--tg-theme-bg-color)` |
+| `text_color` | String | Main text color. CSS: `var(--tg-theme-text-color)` |
+| `hint_color` | String | Hint text color. CSS: `var(--tg-theme-hint-color)` |
+| `link_color` | String | Link color. CSS: `var(--tg-theme-link-color)` |
+| `button_color` | String | Button background color. CSS: `var(--tg-theme-button-color)` |
+| `button_text_color` | String | Button text color. CSS: `var(--tg-theme-button-text-color)` |
+| `secondary_bg_color` *(Bot API 6.1+)* | String | Secondary background color. CSS: `var(--tg-theme-secondary-bg-color)` |
+| `header_bg_color` *(Bot API 7.0+)* | String | Header background color. CSS: `var(--tg-theme-header-bg-color)` |
+| `bottom_bar_bg_color` *(Bot API 7.10+)* | String | Bottom bar background color. CSS: `var(--tg-theme-bottom-bar-bg-color)` |
+| `accent_text_color` *(Bot API 7.0+)* | String | Accent text color. CSS: `var(--tg-theme-accent-text-color)` |
+| `section_bg_color` *(Bot API 7.0+)* | String | Section background color. CSS: `var(--tg-theme-section-bg-color)` |
+| `section_header_text_color` *(Bot API 7.0+)* | String | Section header text color. CSS: `var(--tg-theme-section-header-text-color)` |
+| `section_separator_color` *(Bot API 7.6+)* | String | Section separator color. CSS: `var(--tg-theme-section-separator-color)` |
+| `subtitle_text_color` *(Bot API 7.0+)* | String | Subtitle text color. CSS: `var(--tg-theme-subtitle-text-color)` |
+| `destructive_text_color` *(Bot API 7.0+)* | String | Destructive action text color. CSS: `var(--tg-theme-destructive-text-color)` |
+
+---
+
+## CSS Variables
+
+All available CSS variables injected by `telegram-web-app.js`:
+
+```css
+var(--tg-color-scheme)                    /* "light" or "dark" */
+var(--tg-viewport-height)                 /* current viewport height */
+var(--tg-viewport-stable-height)          /* stable viewport height */
+
+/* Theme colors */
+var(--tg-theme-bg-color)
+var(--tg-theme-text-color)
+var(--tg-theme-hint-color)
+var(--tg-theme-link-color)
+var(--tg-theme-button-color)
+var(--tg-theme-button-text-color)
+var(--tg-theme-secondary-bg-color)
+var(--tg-theme-header-bg-color)
+var(--tg-theme-bottom-bar-bg-color)
+var(--tg-theme-accent-text-color)
+var(--tg-theme-section-bg-color)
+var(--tg-theme-section-header-text-color)
+var(--tg-theme-section-separator-color)
+var(--tg-theme-subtitle-text-color)
+var(--tg-theme-destructive-text-color)
+```
+
+Usage example:
+```css
+body {
+  background-color: var(--tg-theme-bg-color);
+  color: var(--tg-theme-text-color);
+}
+button {
+  background-color: var(--tg-theme-button-color);
+  color: var(--tg-theme-button-text-color);
+}
+```
+
+---
+
+## SafeAreaInset *(Bot API 8.0+)*
+
+`Telegram.WebApp.safeAreaInset` — device safe area insets (e.g., notch, home indicator).
+
+| Field | Type | Description |
+|---|---|---|
+| `top` | Integer | Top inset in pixels |
+| `bottom` | Integer | Bottom inset in pixels |
+| `left` | Integer | Left inset in pixels |
+| `right` | Integer | Right inset in pixels |
+
+---
+
+## ContentSafeAreaInset *(Bot API 8.0+)*
+
+`Telegram.WebApp.contentSafeAreaInset` — area not covered by Telegram UI (header/bottom bars).
+
+| Field | Type | Description |
+|---|---|---|
+| `top` | Integer | Top inset in pixels |
+| `bottom` | Integer | Bottom inset in pixels |
+| `left` | Integer | Left inset in pixels |
+| `right` | Integer | Right inset in pixels |
+
+---
+
+## BackButton *(Bot API 6.1+)*
+
+`Telegram.WebApp.BackButton`
+
+| Field/Method | Type | Description |
+|---|---|---|
+| `isVisible` | Boolean | Whether back button is visible |
+| `onClick(callback)` | Function | Subscribe to click event |
+| `offClick(callback)` | Function | Unsubscribe from click event |
+| `show()` | Function | Show the back button |
+| `hide()` | Function | Hide the back button |
+
+Example:
+```javascript
+const backButton = Telegram.WebApp.BackButton;
+backButton.show();
+backButton.onClick(() => {
+  window.history.back();
+});
+```
+
+---
+
+## BottomButton (formerly MainButton) *(Bot API 7.10+ rename)*
+
+`Telegram.WebApp.MainButton` (primary) and `Telegram.WebApp.SecondaryButton` *(Bot API 7.10+)*
+
+| Field/Method | Type | Description |
+|---|---|---|
+| `text` | String | Button text |
+| `color` | String | Button background color `#RRGGBB` |
+| `textColor` | String | Button text color `#RRGGBB` |
+| `isVisible` | Boolean | Whether button is visible |
+| `isActive` | Boolean | Whether button is enabled (clickable) |
+| `hasShineEffect` | Boolean | Whether shine effect is enabled *(Bot API 7.10+)* |
+| `position` | String | `"left"`, `"right"`, `"top"`, `"bottom"` — for SecondaryButton *(Bot API 7.10+)* |
+| `isProgressVisible` | Boolean | Whether loading spinner is shown |
+| `iconCustomEmojiId` | String | Custom emoji ID for button icon *(Bot API 9.5+)* |
+| `setText(text)` | Function | Sets button text |
+| `onClick(callback)` | Function | Subscribe to click event |
+| `offClick(callback)` | Function | Unsubscribe from click event |
+| `show()` | Function | Show the button |
+| `hide()` | Function | Hide the button |
+| `enable()` | Function | Enable button (make clickable) |
+| `disable()` | Function | Disable button |
+| `showProgress(leaveActive)` | Function | Show spinner. If `leaveActive` = false, also disables button |
+| `hideProgress()` | Function | Hide spinner |
+| `setParams(params)` | Function | Set multiple params at once: `{text, color, text_color, has_shine_effect, position, is_active, is_visible}` |
+
+Example:
+```javascript
+const mainButton = Telegram.WebApp.MainButton;
+mainButton.setText("Submit Order");
+mainButton.color = "#2481cc";
+mainButton.textColor = "#ffffff";
+mainButton.show();
+mainButton.onClick(() => {
+  mainButton.showProgress(false);
+  submitOrder().then(() => {
+    mainButton.hideProgress();
+    mainButton.hide();
+  });
+});
+```
+
+---
+
+## SettingsButton *(Bot API 7.0+)*
+
+`Telegram.WebApp.SettingsButton` — appears in the Mini App's context menu when visible.
+
+| Field/Method | Type | Description |
+|---|---|---|
+| `isVisible` | Boolean | Whether settings button is visible |
+| `onClick(callback)` | Function | Subscribe to click event |
+| `offClick(callback)` | Function | Unsubscribe from click event |
+| `show()` | Function | Show settings button in context menu |
+| `hide()` | Function | Hide settings button |
+
+---
+
+## HapticFeedback *(Bot API 6.1+)*
+
+`Telegram.WebApp.HapticFeedback`
+
+| Method | Description |
+|---|---|
+| `impactOccurred(style)` | Trigger impact haptic. `style`: `"light"`, `"medium"`, `"heavy"`, `"rigid"`, `"soft"` |
+| `notificationOccurred(type)` | Trigger notification haptic. `type`: `"error"`, `"success"`, `"warning"` |
+| `selectionChanged()` | Trigger selection change haptic (light, used when moving through list items) |
+
+Example:
+```javascript
+const haptic = Telegram.WebApp.HapticFeedback;
+
+// On button press
+haptic.impactOccurred("medium");
+
+// On success
+haptic.notificationOccurred("success");
+
+// On scroll/selection
+haptic.selectionChanged();
+```
+
+---
+
+## CloudStorage *(Bot API 6.9+)*
+
+`Telegram.WebApp.CloudStorage` — key-value storage synced to Telegram cloud. Up to **1024 keys** per Mini App, key max **128 chars**, value max **4096 chars**. Keys: `A-Z`, `a-z`, `0-9`, `_`, `-`.
+
+| Method | Description |
+|---|---|
+| `setItem(key, value[, callback])` | Stores value. `callback(error, stored)` |
+| `getItem(key, callback)` | Retrieves value. `callback(error, value)` — value is empty string if not found |
+| `getItems(keys, callback)` | Retrieves multiple values. `callback(error, values)` — object `{key: value}` |
+| `removeItem(key[, callback])` | Removes key. `callback(error, removed)` |
+| `removeItems(keys[, callback])` | Removes multiple keys. `callback(error, removed)` |
+| `getKeys(callback)` | Gets all stored keys. `callback(error, keys)` — array of strings |
+
+Example:
+```javascript
+const storage = Telegram.WebApp.CloudStorage;
+
+// Save
+storage.setItem("user_preference", "dark_mode", (err, stored) => {
+  if (!err && stored) console.log("Saved!");
+});
+
+// Read
+storage.getItem("user_preference", (err, value) => {
+  if (!err) console.log("Value:", value);
+});
+
+// Get all keys
+storage.getKeys((err, keys) => {
+  console.log("All keys:", keys);
+});
+```
+
+---
+
+## DeviceStorage *(Bot API 9.0+)*
+
+`Telegram.WebApp.DeviceStorage` — persistent local storage on the user's device (not cloud-synced). Same key/value limits as CloudStorage.
+
+| Method | Description |
+|---|---|
+| `setItem(key, value[, callback])` | Stores value locally. `callback(error, stored)` |
+| `getItem(key, callback)` | Retrieves value. `callback(error, value)` |
+| `getItems(keys, callback)` | Retrieves multiple values. `callback(error, values)` |
+| `removeItem(key[, callback])` | Removes key. `callback(error, removed)` |
+| `removeItems(keys[, callback])` | Removes multiple keys. `callback(error, removed)` |
+| `getKeys(callback)` | Gets all stored keys. `callback(error, keys)` |
+| `clear([callback])` | Clears all stored data for this Mini App. `callback(error, cleared)` |
+
+---
+
+## SecureStorage *(Bot API 9.0+)*
+
+`Telegram.WebApp.SecureStorage` — secure local storage for sensitive data (e.g. tokens, secrets). Data is encrypted and protected by the device's security (biometrics/PIN).
+
+| Field | Type | Description |
+|---|---|---|
+| `isAvailable` | Boolean | Whether secure storage is available on this device |
+
+| Method | Description |
+|---|---|
+| `setItem(key, value[, callback])` | Stores value securely. `callback(error, stored)` |
+| `getItem(key, callback)` | Retrieves value. `callback(error, value)` |
+| `getItems(keys, callback)` | Retrieves multiple values. `callback(error, values)` |
+| `removeItem(key[, callback])` | Removes key. `callback(error, removed)` |
+| `removeItems(keys[, callback])` | Removes multiple keys. `callback(error, removed)` |
+| `getKeys(callback)` | Gets all stored keys. `callback(error, keys)` |
+| `clear([callback])` | Clears all secure data for this Mini App. `callback(error, cleared)` |
+| `restore([callback])` | Restores data from backup if available. `callback(error, restored)` |
+
+---
+
+## BiometricManager *(Bot API 7.2+)*
+
+`Telegram.WebApp.BiometricManager`
+
+| Field | Type | Description |
+|---|---|---|
+| `isInited` | Boolean | Whether manager is initialized |
+| `isBiometricAvailable` | Boolean | Whether biometric auth is available |
+| `biometricType` | String | `"finger"`, `"face"`, or `"unknown"` |
+| `isAccessRequested` | Boolean | Whether access has been requested |
+| `isAccessGranted` | Boolean | Whether access was granted |
+| `isBiometricTokenSaved` | Boolean | Whether a token is saved |
+| `deviceId` | String | Unique device ID |
+
+| Method | Description |
+|---|---|
+| `init([callback])` | Initialize manager. Must be called first. `callback()` when ready |
+| `requestAccess(params[, callback])` | Request biometric permission. `params`: `{reason}`. `callback(granted)` |
+| `authenticate(params[, callback])` | Authenticate user. `params`: `{reason}`. `callback(authenticated, token)` |
+| `updateBiometricToken(token[, callback])` | Save/update token. `callback(updated)` |
+| `openSettings()` | Open device biometric settings |
+
+Example:
+```javascript
+const bio = Telegram.WebApp.BiometricManager;
+bio.init(() => {
+  if (bio.isBiometricAvailable) {
+    bio.requestAccess({ reason: "Authenticate to access your account" }, (granted) => {
+      if (granted) {
+        bio.authenticate({ reason: "Confirm your identity" }, (ok, token) => {
+          if (ok) console.log("Authenticated, token:", token);
+        });
+      }
+    });
+  }
+});
+```
+
+---
+
+## LocationManager *(Bot API 8.0+)*
+
+`Telegram.WebApp.LocationManager`
+
+| Field | Type | Description |
+|---|---|---|
+| `isInited` | Boolean | Whether manager is initialized |
+| `isLocationAvailable` | Boolean | Whether location access is available |
+| `isAccessRequested` | Boolean | Whether location access has been requested |
+| `isAccessGranted` | Boolean | Whether location access was granted |
+
+| Method | Description |
+|---|---|
+| `init([callback])` | Initialize manager. `callback()` when ready |
+| `getLocation(callback)` | Request current location. `callback(locationData)` — `null` if unavailable/denied |
+| `openSettings()` | Open device location settings |
+
+---
+
+## LocationData *(Bot API 8.0+)*
+
+Returned by `LocationManager.getLocation()`:
+
+| Field | Type | Description |
+|---|---|---|
+| `latitude` | Float | Latitude |
+| `longitude` | Float | Longitude |
+| `altitude` | Float | Altitude (null if unavailable) |
+| `course` | Float | Direction of movement in degrees (null if unavailable) |
+| `speed` | Float | Speed in m/s (null if unavailable) |
+| `horizontal_accuracy` | Float | Horizontal accuracy in meters (null if unavailable) |
+| `vertical_accuracy` | Float | Vertical accuracy in meters (null if unavailable) |
+| `course_accuracy` | Float | Course accuracy in degrees (null if unavailable) |
+| `speed_accuracy` | Float | Speed accuracy in m/s (null if unavailable) |
+
+---
+
+## Accelerometer *(Bot API 8.0+)*
+
+`Telegram.WebApp.Accelerometer`
+
+| Field | Type | Description |
+|---|---|---|
+| `isStarted` | Boolean | Whether accelerometer is active |
+| `x` | Float | X-axis acceleration (m/s²) |
+| `y` | Float | Y-axis acceleration (m/s²) |
+| `z` | Float | Z-axis acceleration (m/s²) |
+
+| Method | Description |
+|---|---|
+| `start(params[, callback])` | Start tracking. `params`: `{refresh_rate}` in ms (min 20). `callback(started)` |
+| `stop([callback])` | Stop tracking. `callback(stopped)` |
+
+Example:
+```javascript
+const accel = Telegram.WebApp.Accelerometer;
+accel.start({ refresh_rate: 100 }, (started) => {
+  if (started) {
+    Telegram.WebApp.onEvent("accelerometerChanged", () => {
+      console.log(`X: ${accel.x}, Y: ${accel.y}, Z: ${accel.z}`);
+    });
+  }
+});
+```
+
+---
+
+## DeviceOrientation *(Bot API 8.0+)*
+
+`Telegram.WebApp.DeviceOrientation`
+
+| Field | Type | Description |
+|---|---|---|
+| `isStarted` | Boolean | Whether orientation tracking is active |
+| `absolute` | Boolean | Whether orientation is absolute (relative to Earth) |
+| `alpha` | Float | Rotation around Z axis (0–360°) |
+| `beta` | Float | Rotation around X axis (-180–180°) |
+| `gamma` | Float | Rotation around Y axis (-90–90°) |
+
+| Method | Description |
+|---|---|
+| `start(params[, callback])` | Start tracking. `params`: `{refresh_rate, need_absolute}`. `callback(started)` |
+| `stop([callback])` | Stop tracking. `callback(stopped)` |
+
+---
+
+## Gyroscope *(Bot API 8.0+)*
+
+`Telegram.WebApp.Gyroscope`
+
+| Field | Type | Description |
+|---|---|---|
+| `isStarted` | Boolean | Whether gyroscope is active |
+| `x` | Float | Angular velocity around X axis (rad/s) |
+| `y` | Float | Angular velocity around Y axis (rad/s) |
+| `z` | Float | Angular velocity around Z axis (rad/s) |
+
+| Method | Description |
+|---|---|
+| `start(params[, callback])` | Start tracking. `params`: `{refresh_rate}` in ms. `callback(started)` |
+| `stop([callback])` | Stop tracking. `callback(stopped)` |
+
+---
+
+## WebAppInitData
+
+`Telegram.WebApp.initDataUnsafe` — **do not trust without server-side validation**.
+
+| Field | Type | Description |
+|---|---|---|
+| `query_id` | String | Unique session identifier for answerWebAppQuery |
+| `user` | WebAppUser | Current user info |
+| `receiver` | WebAppUser | Chat partner info (private chats only) |
+| `chat` | WebAppChat | Chat info (when opened from attachment menu in groups/channels) |
+| `chat_type` | String | Type of the chat: `"sender"`, `"private"`, `"group"`, `"supergroup"`, `"channel"` |
+| `chat_instance` | String | Unique identifier for the chat (for direct link / main Mini App) |
+| `start_param` | String | Value of the `startapp` parameter from the start link |
+| `can_send_after` | Integer | Time in seconds after which `answerWebAppQuery` can be called |
+| `auth_date` | Integer | Unix timestamp when form was opened |
+| `hash` | String | HMAC-SHA256 hash for validation |
+
+---
+
+## WebAppUser
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | Integer | User/bot Telegram ID |
+| `is_bot` | Boolean | `true` if this is a bot |
+| `first_name` | String | First name |
+| `last_name` | String | Last name (optional) |
+| `username` | String | Username (optional) |
+| `language_code` | String | IETF language tag (optional) |
+| `is_premium` | Boolean | `true` if Telegram Premium user |
+| `added_to_attachment_menu` | Boolean | `true` if this bot is added to attachment menu |
+| `allows_write_to_pm` | Boolean | `true` if user allows messages from bot |
+| `photo_url` | String | Profile photo URL (optional, if privacy settings allow) |
+
+---
+
+## WebAppChat
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | Integer | Chat unique identifier |
+| `type` | String | `"group"`, `"supergroup"`, or `"channel"` |
+| `title` | String | Chat title |
+| `username` | String | Username (optional) |
+| `photo_url` | String | Chat photo URL (optional) |
+
+---
+
+## Passing Data to the Bot
+
+### Method 1 — `sendData()` (Keyboard button Mini Apps only)
+```javascript
+// In your Mini App:
+Telegram.WebApp.sendData(JSON.stringify({ action: "selected_date", date: "2024-12-25" }));
+// This closes the Mini App and sends a service message to the bot.
+```
+Bot receives via `message.web_app_data.data`.
+
+### Method 2 — `answerWebAppQuery()` (Inline button / attachment menu)
+```javascript
+// Mini App sends query_id to your server
+fetch('/submit', {
+  method: 'POST',
+  body: JSON.stringify({ query_id: Telegram.WebApp.initDataUnsafe.query_id, data: "..." })
+});
+// Server calls Bot API: answerWebAppQuery(web_app_query_id, result)
+```
+
+---
+
+## Validating Data Received via the Mini App
+
+Always validate `initData` on the server. **Never trust `initDataUnsafe` directly.**
+
+### Algorithm:
+1. Parse the `initData` query string
+2. Extract `hash` field
+3. Sort remaining fields alphabetically
+4. Create data-check string: `field=value\nfield=value\n...`
+5. Compute `HMAC-SHA256(data_check_string, HMAC-SHA256("WebAppData", BOT_TOKEN))`
+6. Compare with extracted `hash`
+
+### Python example:
+```python
+import hashlib, hmac
+from urllib.parse import parse_qsl
+
+def validate_init_data(init_data: str, bot_token: str) -> bool:
+    parsed = dict(parse_qsl(init_data))
+    received_hash = parsed.pop("hash", None)
+    
+    data_check_string = "\n".join(
+        f"{k}={v}" for k, v in sorted(parsed.items())
+    )
+    
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    
+    return hmac.compare_digest(computed_hash, received_hash)
+```
+
+### Node.js example:
+```javascript
+const crypto = require('crypto');
+
+function validateInitData(initData, botToken) {
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  params.delete('hash');
+  
+  const dataCheckString = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n');
+  
+  const secretKey = crypto.createHmac('sha256', 'WebAppData')
+    .update(botToken)
+    .digest();
+  
+  const computedHash = crypto.createHmac('sha256', secretKey)
+    .update(dataCheckString)
+    .digest('hex');
+  
+  return crypto.timingSafeEqual(
+    Buffer.from(computedHash, 'hex'),
+    Buffer.from(hash, 'hex')
+  );
+}
+```
+
+### Validating Data for Third-Party Use *(Bot API 8.0+)*
+Third-party services can validate without knowing the bot token:
+
+```
+secret_key = HMAC-SHA256(init_data.bot_id + ":" + init_data.domain, "WebAppDataThirdParty")
+```
+
+---
+
+## Closing the Mini App
+
+```javascript
+// Simple close
+Telegram.WebApp.close();
+
+// Close and return to the previous screen (Bot API 8.0+)
+Telegram.WebApp.close({ return_back: true });
+```
+
+### Closing Confirmation
+```javascript
+// Enable "are you sure?" dialog when user tries to close
+Telegram.WebApp.enableClosingConfirmation();
+
+// Disable it
+Telegram.WebApp.disableClosingConfirmation();
+```
+
+---
+
+## Expanding / Viewport
+
+```javascript
+// Check if expanded
+if (!Telegram.WebApp.isExpanded) {
+  Telegram.WebApp.expand();
+}
+
+// Listen to viewport changes
+Telegram.WebApp.onEvent("viewportChanged", ({ isStateStable }) => {
+  if (isStateStable) {
+    const height = Telegram.WebApp.viewportStableHeight;
+    document.body.style.minHeight = height + "px";
+  }
+});
+```
+
+---
+
+## Full-Screen Mode *(Bot API 8.0+)*
+
+```javascript
+// Request fullscreen
+Telegram.WebApp.requestFullscreen();
+
+// Exit fullscreen
+Telegram.WebApp.exitFullscreen();
+
+// Listen for fullscreen events
+Telegram.WebApp.onEvent("fullscreenChanged", () => {
+  console.log("Fullscreen:", Telegram.WebApp.isFullscreen);
+});
+
+Telegram.WebApp.onEvent("fullscreenFailed", ({ error }) => {
+  console.error("Fullscreen failed:", error);
+  // error: "UNSUPPORTED" | "ALREADY_FULLSCREEN"
+});
+
+// Lock orientation in fullscreen
+Telegram.WebApp.lockOrientation();
+Telegram.WebApp.unlockOrientation();
+```
+
+---
+
+## Theme / Color Scheme
+
+```javascript
+// Current scheme
+console.log(Telegram.WebApp.colorScheme); // "light" or "dark"
+
+// All theme params
+console.log(Telegram.WebApp.themeParams);
+
+// React to theme changes
+Telegram.WebApp.onEvent("themeChanged", () => {
+  const theme = Telegram.WebApp.themeParams;
+  document.body.style.backgroundColor = theme.bg_color;
+  document.body.style.color = theme.text_color;
+});
+
+// Or just use CSS variables (auto-updated):
+// body { background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+```
+
+---
+
+## Launching Methods Summary
+
+| Method | Description | Use Case |
+|---|---|---|
+| Keyboard Button | `web_app` type `KeyboardButton` | Simple data input, no server needed |
+| Inline Button | `web_app` type `InlineKeyboardButton` | Full web apps, uses `answerWebAppQuery` |
+| Menu Button | `setChatMenuButton()` or BotFather | Same as inline button, quicker access |
+| Main Mini App | BotFather → Main Mini App setup | Primary app experience, store listing |
+| Inline Mode | `InlineQueryResultsButton` | Create content for inline sharing |
+| Direct Link | `t.me/botusername/appname` | Shareable links, group context |
+| Attachment Menu | `/setattach` (test servers) | Access from any chat attachment menu |
+
+---
+
+## Adding Bots to the Attachment Menu
+
+Links for adding bot to attachment menu:
+```
+https://t.me/botusername?startattach           # any chat
+https://t.me/botusername?startattach=command   # with start param
+https://t.me/botusername?startattach&choose=users+bots+groups+channels
+```
+
+---
+
+## Debug Mode
+
+**Android:** Enable USB debugging → `chrome://inspect/#devices`
+
+**iOS (Bot API 8.0+):**  
+Settings → Advanced → Debug Mini Apps (toggle)  
+Then in Safari: Develop → [device] → [Mini App]
+
+**Desktop Telegram:** Right-click → Inspect
+
+---
+
+## Using Bots in the Test Environment
+
+Test server bot token is separate. To use:
+1. Switch Telegram to test server (Settings → tap version number 5x on Android / 10x on iOS → enter test credentials)
+2. Create a separate bot via @BotFather on test server
+3. Test URLs work normally on test server
+
+---
+
+## Additional Data in User-Agent (Android, Bot API 8.0+)
+
+Mini Apps on Android receive device performance data in the User-Agent:
+
+```
+TelegramAndroid/X.X.X (Model; PerformanceClass) SDK/XX
+```
+
+Performance classes: `LOW`, `AVERAGE`, `HIGH`
+
+Use to optimize animations and visual effects for low-performance devices.
+
+---
+
+## Complete Initialization Example
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js?62"></script>
+  <style>
+    body {
+      background-color: var(--tg-theme-bg-color);
+      color: var(--tg-theme-text-color);
+      font-family: -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+    }
+    button {
+      background-color: var(--tg-theme-button-color);
+      color: var(--tg-theme-button-text-color);
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Hello!</h1>
+  <p id="user-name"></p>
+  <button onclick="submitAction()">Submit</button>
+
+  <script>
+    const webapp = window.Telegram.WebApp;
+    
+    // Tell Telegram the app is ready (hides loading screen)
+    webapp.ready();
+    
+    // Expand to full height
+    webapp.expand();
+    
+    // Display user info
+    const user = webapp.initDataUnsafe.user;
+    if (user) {
+      document.getElementById("user-name").textContent = 
+        `Hello, ${user.first_name}!`;
+    }
+    
+    // Setup main button
+    webapp.MainButton.setText("Confirm");
+    webapp.MainButton.show();
+    webapp.MainButton.onClick(() => {
+      webapp.MainButton.showProgress(false);
+      // ... do work ...
+      webapp.close();
+    });
+    
+    function submitAction() {
+      webapp.HapticFeedback.impactOccurred("medium");
+      webapp.showConfirm("Are you sure?", (confirmed) => {
+        if (confirmed) {
+          webapp.sendData(JSON.stringify({ action: "confirmed" }));
+        }
+      });
+    }
+    
+    // Theme change listener
+    webapp.onEvent("themeChanged", () => {
+      console.log("New scheme:", webapp.colorScheme);
+    });
+  </script>
+</body>
+</html>
+```
+
+---
+
+**Full raw documentation** (108,578 chars) saved to `/workspace/tma_docs.md`.
