@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
 
 let fcSdkCache: typeof import('@farcaster/miniapp-sdk').sdk | null = null;
 async function getFcSdk() {
@@ -698,31 +699,18 @@ export function GameScreen({ user }: { user?: GameUser | null } = {}) {
         )}
 
         {tab === 'stats' && (
-          <div className="flex-1 p-4 space-y-3">
-            <h2 className="text-xl font-bold text-[var(--accent-green)] mb-4">Your Stats</h2>
-            <StatRow label="Total Score" value={state.score.toLocaleString()} />
-            <StatRow label="Total Spins" value={state.totalSpins.toLocaleString()} />
-            <StatRow label="Best Combo" value={`${state.bestCombo}x`} />
-            <StatRow label="Level" value={`${state.level} — ${getLevelTitle(state.level)}`} />
-            <StatRow label="XP Progress" value={`${state.xp}/${state.xpToNext}`} />
-            <StatRow label="Daily Streak" value={`Day ${state.dailyRewardDay}`} />
-            <StatRow label="Sessions Played" value={String(state.sessionsPlayed)} />
-            <StatRow label="Multiplier" value={`${comboMultiplier}x at max combo`} />
-            <div className="pt-4">
-              <button
-                onClick={() => {
-                  if (confirm('Reset all progress? This cannot be undone.')) {
-                    const fresh = getDefaultState();
-                    saveState(fresh);
-                    setState(fresh);
-                  }
-                }}
-                className="text-sm text-red-400/60 hover:text-red-400 transition-colors"
-              >
-                Reset Progress
-              </button>
-            </div>
-          </div>
+          <ProfileTab
+            user={user}
+            state={state}
+            comboMultiplier={comboMultiplier}
+            onReset={() => {
+              if (confirm('Reset all progress? This cannot be undone.')) {
+                const fresh = getDefaultState();
+                saveState(fresh);
+                setState(fresh);
+              }
+            }}
+          />
         )}
 
         {tab === 'leaderboard' && (
@@ -1050,6 +1038,141 @@ export function GameScreen({ user }: { user?: GameUser | null } = {}) {
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ user, state, comboMultiplier, onReset }: { user?: GameUser | null; state: GameState; comboMultiplier: number; onReset: () => void }) {
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  const [fcUser, setFcUser] = useState<{ fid?: number; username?: string; displayName?: string; pfpUrl?: string } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { sdk } = await import('@farcaster/miniapp-sdk');
+        const inApp = await sdk.isInMiniApp();
+        if (inApp) {
+          const context = await sdk.context;
+          if (context?.user) {
+            setFcUser({
+              fid: context.user.fid,
+              username: context.user.username,
+              displayName: context.user.displayName,
+              pfpUrl: context.user.pfpUrl,
+            });
+          }
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const platformLabel = user?.platform === 'farcaster' ? 'Farcaster' : user?.platform === 'telegram' ? 'Telegram' : user?.platform === 'base' ? 'Base' : user?.platform === 'email' ? 'Email' : 'Guest';
+
+  return (
+    <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <h2 className="text-xl font-bold text-[var(--accent-green)] mb-2">Profile</h2>
+
+      {/* User Card */}
+      <div className="p-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border border-purple-500/30 rounded-xl">
+        <div className="flex items-center gap-3">
+          {fcUser?.pfpUrl ? (
+            <img src={fcUser.pfpUrl} alt="" className="w-12 h-12 rounded-full border-2 border-[var(--accent-green)]" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--accent-green)] to-emerald-600 flex items-center justify-center text-xl font-black text-[var(--bg-primary)]">
+              {(user?.name || 'P')[0].toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1">
+            <p className="font-bold text-white text-lg">{user?.name || 'Guest Player'}</p>
+            <p className="text-xs text-white/50">{platformLabel}{fcUser?.fid ? ` · FID ${fcUser.fid}` : ''}{fcUser?.username ? ` · @${fcUser.username}` : ''}</p>
+          </div>
+          <span className="px-2 py-1 bg-white/10 rounded-lg text-xs text-white/60 font-medium">{platformLabel}</span>
+        </div>
+      </div>
+
+      {/* Base Wallet */}
+      <div className="p-4 bg-white/5 rounded-xl">
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-2xl">🔗</span>
+          <div className="flex-1">
+            <p className="font-bold text-white">Base Wallet</p>
+            <p className="text-xs text-white/50">Connect your wallet for on-chain rewards</p>
+          </div>
+        </div>
+        {isConnected && address ? (
+          <div className="space-y-2">
+            <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <p className="text-xs text-green-400 font-medium">Connected</p>
+              <p className="text-sm text-white font-mono mt-1">{address.slice(0, 6)}...{address.slice(-4)}</p>
+            </div>
+            <button
+              onClick={() => disconnect()}
+              className="w-full py-2 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-colors"
+            >
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {connectors.filter(c => c.id !== 'injected').map((connector) => (
+              <button
+                key={connector.id}
+                onClick={() => connect({ connector })}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm font-bold hover:from-blue-700 hover:to-blue-800 transition-all"
+              >
+                Connect {connector.name}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                const injected = connectors.find(c => c.id === 'injected');
+                if (injected) connect({ connector: injected });
+              }}
+              className="w-full py-2.5 bg-white/10 text-white rounded-lg text-sm font-medium hover:bg-white/20 transition-colors"
+            >
+              Connect Browser Wallet
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Farcaster Profile */}
+      {fcUser && (
+        <div className="p-4 bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/20 rounded-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🟣</span>
+            <div className="flex-1">
+              <p className="font-bold text-white">Farcaster</p>
+              <p className="text-xs text-white/50">{fcUser.displayName || fcUser.username || 'Connected'}{fcUser.fid ? ` · FID ${fcUser.fid}` : ''}</p>
+            </div>
+            <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-xs font-medium">Active</span>
+          </div>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider">Game Stats</h3>
+        <StatRow label="Total Score" value={state.score.toLocaleString()} />
+        <StatRow label="Total Spins" value={state.totalSpins.toLocaleString()} />
+        <StatRow label="Best Combo" value={`${state.bestCombo}x`} />
+        <StatRow label="Level" value={`${state.level} — ${getLevelTitle(state.level)}`} />
+        <StatRow label="XP Progress" value={`${state.xp}/${state.xpToNext}`} />
+        <StatRow label="Daily Streak" value={`Day ${state.dailyRewardDay}`} />
+        <StatRow label="Sessions Played" value={String(state.sessionsPlayed)} />
+        <StatRow label="Multiplier" value={`${comboMultiplier}x at max combo`} />
+      </div>
+
+      <div className="pt-2">
+        <button
+          onClick={onReset}
+          className="text-sm text-red-400/60 hover:text-red-400 transition-colors"
+        >
+          Reset Progress
+        </button>
       </div>
     </div>
   );
