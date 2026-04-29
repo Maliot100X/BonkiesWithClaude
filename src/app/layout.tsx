@@ -17,7 +17,7 @@ const luckiest = Luckiest_Guy({
   variable: "--font-display",
 });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bonkwithclaude.vercel.app";
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bonkies-with-claude.vercel.app";
 
 export const metadata: Metadata = {
   title: "BonkWithClaude",

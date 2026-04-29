@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { WalletConnect } from './WalletConnect';
 import { isTelegram } from '@/lib/platform';
-import { sdk } from '@farcaster/miniapp-sdk';
 
 interface LoginButtonsProps {
   onAuthenticated?: () => void;
@@ -30,6 +29,7 @@ export function LoginButtons({ onAuthenticated }: LoginButtonsProps) {
 
   async function handleFarcasterLogin() {
     try {
+      const { sdk } = await import('@farcaster/miniapp-sdk');
       const { token } = await sdk.quickAuth.getToken();
       const res = await fetch('/api/auth/farcaster', {
         method: 'POST',

@@ -4,7 +4,6 @@ import { GameScreen } from '@/components/GameScreen';
 import { isTelegram } from '@/lib/platform';
 import { useAccount } from 'wagmi';
 import { useEffect, useState, useCallback } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
 
 export default function Home() {
   const { isConnected } = useAccount();
@@ -14,6 +13,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
+        const { sdk } = await import('@farcaster/miniapp-sdk');
         const inApp = await sdk.isInMiniApp();
         setIsFarcaster(inApp);
       } catch {

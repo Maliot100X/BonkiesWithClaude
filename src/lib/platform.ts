@@ -1,5 +1,3 @@
-import { sdk } from '@farcaster/miniapp-sdk';
-
 export type Platform = 'telegram' | 'farcaster' | 'base' | 'web';
 
 export function detectPlatformSync(): Platform {
@@ -12,6 +10,7 @@ export async function detectPlatform(): Promise<Platform> {
   if (typeof window === 'undefined') return 'web';
   if (window.Telegram?.WebApp?.initData) return 'telegram';
   try {
+    const { sdk } = await import('@farcaster/miniapp-sdk');
     if (await sdk.isInMiniApp()) return 'farcaster';
   } catch {
     // not in Farcaster

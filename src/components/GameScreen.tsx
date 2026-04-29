@@ -1,6 +1,18 @@
 'use client';
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { sdk } from '@farcaster/miniapp-sdk';
+
+let fcSdkCache: typeof import('@farcaster/miniapp-sdk').sdk | null = null;
+async function getFcSdk() {
+  if (fcSdkCache) return fcSdkCache;
+  try {
+    const mod = await import('@farcaster/miniapp-sdk');
+    fcSdkCache = mod.sdk;
+    return mod.sdk;
+  } catch {
+    return null;
+  }
+}
+
 import {
   GameState,
   getDefaultState,
@@ -232,7 +244,7 @@ export function GameScreen() {
       if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
       }
-      try { sdk.haptics.impactOccurred('medium'); } catch { /* not in Farcaster */ }
+      getFcSdk().then(s => s?.haptics.impactOccurred('medium')).catch(() => {});
 
       setTimeout(() => {
         setState((innerPrev) => {
@@ -323,7 +335,7 @@ export function GameScreen() {
           if (platform === 'telegram' && window.Telegram?.WebApp?.HapticFeedback) {
             window.Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
           }
-          try { sdk.haptics.impactOccurred('heavy'); } catch { /* not in Farcaster */ }
+          getFcSdk().then(s => s?.haptics.impactOccurred('heavy')).catch(() => {});
 
           setTimeout(() => setSpinResult(null), 2500);
           setSpinning(false);
@@ -388,10 +400,15 @@ export function GameScreen() {
   const shareScore = useCallback(async () => {
     const text = `I spun ${state.totalSpins} times and reached level ${state.level} (${getLevelTitle(state.level)}) on BonkWithClaude! Score: ${state.score}. Can you beat me?`;
     try {
-      await sdk.actions.composeCast({
-        text,
-        embeds: [typeof window !== 'undefined' ? window.location.origin : ''],
-      });
+      const s = await getFcSdk();
+      if (s) {
+        await s.actions.composeCast({
+          text,
+          embeds: [typeof window !== 'undefined' ? window.location.origin : ''],
+        });
+      } else if (typeof navigator !== 'undefined' && navigator.share) {
+        navigator.share({ title: 'BonkWithClaude', text, url: window.location.origin });
+      }
     } catch {
       if (typeof navigator !== 'undefined' && navigator.share) {
         navigator.share({ title: 'BonkWithClaude', text, url: window.location.origin });
