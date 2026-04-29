@@ -548,7 +548,7 @@ export function GameScreen({ user }: { user?: GameUser | null } = {}) {
 
             {/* Spin Wheel */}
             <div className="relative my-4" ref={wheelRef}>
-              <div className="absolute inset-0 rounded-full" style={{
+              <div className="absolute inset-0 rounded-full pointer-events-none" style={{
                 background: `conic-gradient(from 0deg, ${state.combo >= 20 ? '#FF4081' : state.combo >= 10 ? '#00E676' : '#00B0FF'}, transparent, ${state.combo >= 20 ? '#FF4081' : state.combo >= 10 ? '#00E676' : '#00B0FF'})`,
                 filter: 'blur(20px)',
                 opacity: spinning ? 0.6 : 0.3,
@@ -556,7 +556,7 @@ export function GameScreen({ user }: { user?: GameUser | null } = {}) {
               }} />
 
               {/* Pointer */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-10">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 z-10 pointer-events-none">
                 <svg width="28" height="32" viewBox="0 0 28 32">
                   <polygon points="14,32 0,0 28,0" fill="#00E676" stroke="#00C853" strokeWidth="1" />
                   <polygon points="14,26 4,4 24,4" fill="#69F0AE" opacity="0.5" />
