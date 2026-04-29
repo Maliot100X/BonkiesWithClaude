@@ -1,0 +1,28 @@
+{
+  "accountAssociation": {
+    "header": "PLACEHOLDER_GENERATE_AT_FARCASTER_DEV",
+    "payload": "PLACEHOLDER_GENERATE_AT_FARCASTER_DEV",
+    "signature": "PLACEHOLDER_GENERATE_AT_FARCASTER_DEV"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "BonkWithClaude",
+    "iconUrl": "https://bonkwithclaude.vercel.app/icon.png",
+    "homeUrl": "https://bonkwithclaude.vercel.app",
+    "imageUrl": "https://bonkwithclaude.vercel.app/og.png",
+    "buttonTitle": "Play Now",
+    "splashImageUrl": "https://bonkwithclaude.vercel.app/splash.png",
+    "splashBackgroundColor": "#0A0F26",
+    "webhookUrl": "https://bonkwithclaude.vercel.app/api/webhook/farcaster",
+    "description": "Bonk with Claude on Farcaster! Tap to bonk and share your score.",
+    "primaryCategory": "games",
+    "tags": ["game", "bonk", "claude"],
+    "tagline": "Bonk your way to glory!",
+    "ogTitle": "BonkWithClaude",
+    "ogDescription": "The ultimate bonking game on Farcaster, Telegram, and Base!",
+    "ogImageUrl": "https://bonkwithclaude.vercel.app/og.png",
+    "noindex": false,
+    "requiredChains": ["eip155:8453", "eip155:84532"],
+    "requiredCapabilities": ["wallet.getEthereumProvider", "actions.composeCast", "haptics.impactOccurred"]
+  }
+}
