@@ -2,29 +2,43 @@
 import { useEffect, useRef } from 'react';
 
 export function FarcasterInit() {
-  const called = useRef(false);
+  const readyCalled = useRef(false);
 
   useEffect(() => {
-    if (called.current) return;
+    if (readyCalled.current) return;
 
-    // Try immediately and on a short delay (SDK may load async)
-    const tryReady = async () => {
-      if (called.current) return;
+    const init = async () => {
       try {
+        // Dynamic import so it doesn't crash outside Farcaster
         const { sdk } = await import('@farcaster/miniapp-sdk');
         const isInApp = await sdk.isInMiniApp();
-        if (isInApp && !called.current) {
-          called.current = true;
+        if (isInApp && !readyCalled.current) {
+          readyCalled.current = true;
           await sdk.actions.ready();
         }
       } catch {
-        // Not in Farcaster - safe to ignore
+        // Not in Farcaster - this is fine
       }
     };
 
-    tryReady();
-    // Retry after a short delay in case SDK loads late
-    const timer = setTimeout(tryReady, 500);
+    // Call immediately
+    init();
+
+    // Also try after a delay in case SDK loads late
+    const timer = setTimeout(async () => {
+      if (readyCalled.current) return;
+      try {
+        const { sdk } = await import('@farcaster/miniapp-sdk');
+        const isInApp = await sdk.isInMiniApp();
+        if (isInApp && !readyCalled.current) {
+          readyCalled.current = true;
+          await sdk.actions.ready();
+        }
+      } catch {
+        // ignore
+      }
+    }, 1000);
+
     return () => clearTimeout(timer);
   }, []);
 

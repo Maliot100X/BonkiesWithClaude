@@ -20,26 +20,27 @@ const luckiest = Luckiest_Guy({
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bonkies-with-claude.vercel.app";
 
 export const metadata: Metadata = {
-  title: "BonkWithClaude",
-  description: "Bonk your way to glory! Play on Farcaster, Telegram, and Base.",
+  title: "BonkiesWithClaude",
+  description: "Spin the wheel, earn coins, climb the leaderboard! Play on Farcaster, Telegram, and Base.",
   metadataBase: new URL(appUrl),
   openGraph: {
-    title: "BonkWithClaude",
-    description: "The ultimate bonking game on Farcaster, Telegram, and Base!",
+    title: "BonkiesWithClaude",
+    description: "The ultimate spin game on Farcaster, Telegram, and Base!",
     images: [`${appUrl}/og.png`],
     url: appUrl,
-    siteName: "BonkWithClaude",
+    siteName: "BonkiesWithClaude",
     type: "website",
   },
   other: {
+    "base:app_id": "69f2587905020c0316bbbfdf",
     "fc:miniapp": JSON.stringify({
       version: "next",
       imageUrl: `${appUrl}/og.png`,
       button: {
-        title: "Bonk!",
+        title: "Play Now",
         action: {
           type: "launch_miniapp",
-          name: "BonkWithClaude",
+          name: "BonkiesWithClaude",
           url: `${appUrl}/game`,
           splashImageUrl: `${appUrl}/splash.png`,
           splashBackgroundColor: "#0A0F26",

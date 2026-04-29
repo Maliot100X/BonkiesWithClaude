@@ -108,19 +108,29 @@ export function GameScreen() {
   useEffect(() => {
     setPlatform(detectPlatformSync());
     const init = async () => {
-      let loaded = loadState();
-      const tgState = await loadFromTelegram();
-      if (tgState && tgState.totalSpins > loaded.totalSpins) {
-        loaded = tgState;
+      try {
+        let loaded = loadState();
+        try {
+          const tgState = await loadFromTelegram();
+          if (tgState && tgState.totalSpins > loaded.totalSpins) {
+            loaded = tgState;
+          }
+        } catch { /* not in telegram */ }
+        loaded = checkDailyReward(loaded);
+        loaded = refillEnergy(loaded);
+        loaded = initDailyChallenges(loaded);
+        try {
+          const { state: refState } = useReferralBonus(loaded);
+          loaded = refState;
+        } catch { /* no localStorage */ }
+        loaded.sessionsPlayed += 1;
+        setState(loaded);
+      } catch {
+        // On any error, use default state
+        setState(getDefaultState());
+      } finally {
+        setInitialized(true);
       }
-      loaded = checkDailyReward(loaded);
-      loaded = refillEnergy(loaded);
-      loaded = initDailyChallenges(loaded);
-      const { state: refState } = useReferralBonus(loaded);
-      loaded = refState;
-      loaded.sessionsPlayed += 1;
-      setState(loaded);
-      setInitialized(true);
     };
     init();
   }, []);
