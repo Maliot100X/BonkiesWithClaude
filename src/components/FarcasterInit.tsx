@@ -1,6 +1,15 @@
 'use client';
 import { useEffect } from 'react';
 
+function getGlobalSdk() {
+  try {
+    if (typeof window !== 'undefined' && (window as any).miniapp?.sdk) {
+      return (window as any).miniapp.sdk;
+    }
+  } catch {}
+  return null;
+}
+
 export function FarcasterInit() {
   useEffect(() => {
     let done = false;
@@ -8,11 +17,16 @@ export function FarcasterInit() {
     const callReady = async () => {
       if (done) return;
       try {
-        const mod = await import('@farcaster/miniapp-sdk');
-        const isIn = await mod.sdk.isInMiniApp();
-        if (isIn && !done) {
+        // Try CDN-loaded SDK first
+        let sdk = getGlobalSdk();
+        if (!sdk) {
+          // Fall back to dynamic import
+          const mod = await import('@farcaster/miniapp-sdk');
+          sdk = mod.sdk;
+        }
+        if (sdk && !done) {
           done = true;
-          await mod.sdk.actions.ready();
+          await sdk.actions.ready();
         }
       } catch {
         // ignore
@@ -21,12 +35,9 @@ export function FarcasterInit() {
 
     // Try immediately
     callReady();
-
-    // Try again after 300ms
+    // Retry
     const t1 = setTimeout(callReady, 300);
-    // Try again after 1s
     const t2 = setTimeout(callReady, 1000);
-    // Try again after 2s
     const t3 = setTimeout(callReady, 2000);
 
     return () => {
